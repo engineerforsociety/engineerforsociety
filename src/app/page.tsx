@@ -36,10 +36,12 @@ function ProfileCard() {
         <Card className="overflow-hidden">
             <div className="relative h-20 w-full">
                 {heroImage && <Image src={heroImage.imageUrl} alt="Profile background" fill className="object-cover" data-ai-hint={heroImage.imageHint} />}
-                 <Avatar className="h-20 w-20 mx-auto absolute -bottom-10 left-1/2 -translate-x-1/2 border-4 border-background">
-                    <AvatarImage src={profilePic?.imageUrl} alt={sampleUserProfile.name} data-ai-hint={profilePic?.imageHint} />
-                    <AvatarFallback>{sampleUserProfile.name.substring(0,2)}</AvatarFallback>
-                </Avatar>
+                 <Link href="/profile">
+                    <Avatar className="h-20 w-20 mx-auto absolute -bottom-10 left-1/2 -translate-x-1/2 border-4 border-background cursor-pointer hover:opacity-90 transition-opacity">
+                        <AvatarImage src={profilePic?.imageUrl} alt={sampleUserProfile.name} data-ai-hint={profilePic?.imageHint} />
+                        <AvatarFallback>{sampleUserProfile.name.substring(0,2)}</AvatarFallback>
+                    </Avatar>
+                </Link>
             </div>
             <CardContent className="text-center pt-12 pb-4">
                 <Link href="/profile">

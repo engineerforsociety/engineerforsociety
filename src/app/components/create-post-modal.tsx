@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import { 
     Dialog, 
     DialogContent, 
@@ -23,6 +24,14 @@ type CreatePostModalProps = {
 
 export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) {
   const profilePic = PlaceHolderImages.find((p) => p.id === 'profile-pic');
+  const [postContent, setPostContent] = useState('');
+
+  const handlePost = () => {
+    console.log('Posting content:', postContent);
+    // Here you would typically call an API to save the post
+    setPostContent('');
+    onOpenChange(false);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -43,6 +52,8 @@ export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) 
           <Textarea
             placeholder="What do you want to talk about?"
             className="min-h-[200px] border-none focus-visible:ring-0 text-base"
+            value={postContent}
+            onChange={(e) => setPostContent(e.target.value)}
           />
         </div>
         <div className="flex items-center justify-between">
@@ -68,7 +79,7 @@ export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) 
             <Button variant="ghost" size="icon"><Quote /></Button>
         </div>
         <DialogFooter>
-          <Button disabled>Post</Button>
+          <Button onClick={handlePost} disabled={!postContent.trim()}>Post</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

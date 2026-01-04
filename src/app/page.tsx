@@ -1,4 +1,6 @@
 
+'use client';
+
 import {
   MessageSquare,
   Heart,
@@ -28,6 +30,8 @@ import { sampleForumPosts, sampleTrendingTopics, sampleUsersToFollow, sampleUser
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
+import { CreatePostModal } from '@/app/components/create-post-modal';
+import { useState } from 'react';
 
 function ProfileCard() {
     const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
@@ -104,7 +108,11 @@ function RecentActivityCard() {
 
 export default function Home() {
   const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
   return (
+    <>
+    <CreatePostModal isOpen={isModalOpen} onOpenChange={setIsModalOpen} />
     <div className="grid lg:grid-cols-4 gap-8 items-start">
       <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
         <ProfileCard />
@@ -121,10 +129,12 @@ export default function Home() {
             </Avatar>
             </Link>
             <div className="flex-1">
-              <input
-                placeholder="Start a post"
-                className="w-full bg-muted rounded-full px-4 py-3 text-sm border-transparent focus:border-primary focus:ring-primary"
-              />
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="w-full bg-muted rounded-full px-4 py-3 text-sm text-left text-muted-foreground border-transparent hover:bg-border transition-colors"
+              >
+                Start a post
+              </button>
             </div>
           </CardHeader>
            <CardFooter className="flex justify-around">
@@ -241,5 +251,6 @@ export default function Home() {
         </Card>
       </aside>
     </div>
+    </>
   );
 }

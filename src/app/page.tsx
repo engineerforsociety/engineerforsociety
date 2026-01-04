@@ -14,6 +14,10 @@ import {
   Rss,
   Building,
   Users,
+  Copy,
+  Code,
+  X,
+  UserMinus,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -27,16 +31,26 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { sampleForumPosts, sampleTrendingTopics, sampleUsersToFollow, sampleUserProfile } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import { CreatePostModal } from '@/app/components/create-post-modal';
 import { LandingHero } from '@/app/components/landing-hero';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { Logo } from '@/app/components/icons';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
+import { SharePostModal } from '@/app/components/share-post-modal';
 
 type FeedPost = {
   id: string;
@@ -44,12 +58,17 @@ type FeedPost = {
   content: string;
   tags: string[];
   created_at: string;
+  author_id: string;
   author_name: string;
   author_avatar: string;
   author_title: string;
   category_name: string;
   like_count: number;
   comment_count: number;
+  share_count?: number;
+  is_liked?: boolean;
+  is_saved?: boolean;
+  is_following?: boolean;
 };
 
 function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
@@ -135,6 +154,384 @@ function RecentActivityCard() {
   )
 }
 
+function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; currentUserId?: string; formatDate: (date: string) => string }) {
+  const supabase = createClient();
+  const { toast } = useToast();
+  const router = useRouter();
+  const [isLiked, setIsLiked] = useState(post.is_liked || false);
+  const [isSaved, setIsSaved] = useState(post.is_saved || false);
+  const [isFollowing, setIsFollowing] = useState(post.is_following || false);
+  const [likeCount, setLikeCount] = useState(post.like_count || 0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  const handleLike = async () => {
+    if (!currentUserId) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to like posts.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      if (isLiked) {
+        // Unlike
+        const { error } = await supabase
+          .from('post_reactions')
+          .delete()
+          .eq('post_id', post.id)
+          .eq('user_id', currentUserId)
+          .eq('reaction_type', 'like');
+
+        if (error) throw error;
+        setIsLiked(false);
+        setLikeCount(prev => Math.max(0, prev - 1));
+      } else {
+        // Like
+        const { error } = await supabase
+          .from('post_reactions')
+          .insert({
+            post_id: post.id,
+            user_id: currentUserId,
+            reaction_type: 'like'
+          });
+
+        if (error) throw error;
+        setIsLiked(true);
+        setLikeCount(prev => prev + 1);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update like.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!currentUserId) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to save posts.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      if (isSaved) {
+        // Unsave
+        const { error } = await supabase
+          .from('post_saves')
+          .delete()
+          .eq('post_id', post.id)
+          .eq('user_id', currentUserId);
+
+        if (error) throw error;
+        setIsSaved(false);
+        toast({
+          title: "Post unsaved",
+          description: "Post removed from your saved items."
+        });
+      } else {
+        // Save
+        const { error } = await supabase
+          .from('post_saves')
+          .insert({
+            post_id: post.id,
+            user_id: currentUserId
+          });
+
+        if (error) throw error;
+        setIsSaved(true);
+        toast({
+          title: "Post saved",
+          description: "Post added to your saved items."
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save post.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleShare = () => {
+    if (!currentUserId) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to share posts.",
+        variant: "destructive"
+      });
+      return;
+    }
+    setIsShareModalOpen(true);
+  };
+
+  const handleRepost = async () => {
+    if (!currentUserId) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to repost.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // Check if already reposted
+      const { data: existing } = await supabase
+        .from('post_reposts')
+        .select('id')
+        .eq('original_post_id', post.id)
+        .eq('reposter_id', currentUserId)
+        .single();
+
+      if (existing) {
+        // Unrepost
+        const { error } = await supabase
+          .from('post_reposts')
+          .delete()
+          .eq('original_post_id', post.id)
+          .eq('reposter_id', currentUserId);
+
+        if (error) throw error;
+        toast({
+          title: "Repost removed",
+          description: "Post removed from your profile."
+        });
+      } else {
+        // Repost
+        const { error } = await supabase
+          .from('post_reposts')
+          .insert({
+            original_post_id: post.id,
+            reposter_id: currentUserId
+          });
+
+        if (error) throw error;
+        toast({
+          title: "Reposted!",
+          description: "Post has been added to your profile."
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to repost.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      const postUrl = `${window.location.origin}/forums/post/${post.id}`;
+      await navigator.clipboard.writeText(postUrl);
+      toast({
+        title: "Link copied!",
+        description: "Post link copied to clipboard."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to copy link.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEmbed = () => {
+    const embedCode = `<iframe src="${window.location.origin}/forums/post/${post.id}/embed" width="600" height="400" frameborder="0"></iframe>`;
+    navigator.clipboard.writeText(embedCode).then(() => {
+      toast({
+        title: "Embed code copied!",
+        description: "Embed code copied to clipboard."
+      });
+    }).catch(() => {
+      toast({
+        title: "Error",
+        description: "Failed to copy embed code.",
+        variant: "destructive"
+      });
+    });
+  };
+
+  const handleNotInterested = async () => {
+    // This could hide the post from the feed
+    toast({
+      title: "Post hidden",
+      description: "We'll show you less content like this."
+    });
+  };
+
+  const handleUnfollow = async () => {
+    if (!currentUserId || !post.author_id) return;
+
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from('user_follows')
+        .delete()
+        .eq('follower_id', currentUserId)
+        .eq('following_id', post.author_id);
+
+      if (error) throw error;
+      setIsFollowing(false);
+      toast({
+        title: "Unfollowed",
+        description: `You've unfollowed ${post.author_name}.`
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to unfollow user.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleAuthorClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Navigate to profile - for now using /profile, but ideally should be /profile/[userId]
+    // Since we don't have dynamic profile routes yet, we'll use a query param or create one
+    router.push(`/profile?userId=${post.author_id}`);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-4">
+          <Link href={`/profile?userId=${post.author_id}`} onClick={handleAuthorClick}>
+            <Avatar className="cursor-pointer hover:opacity-80 transition-opacity">
+              <AvatarImage src={post.author_avatar} alt={post.author_name} />
+              <AvatarFallback>{post.author_name?.substring(0, 2) || 'U'}</AvatarFallback>
+            </Avatar>
+          </Link>
+          <div className="flex-1">
+            <Link href={`/profile?userId=${post.author_id}`} onClick={handleAuthorClick}>
+              <CardTitle className="text-base font-semibold leading-tight hover:underline cursor-pointer">
+                {post.author_name || 'Anonymous'}
+              </CardTitle>
+            </Link>
+            <CardDescription className="text-xs">
+              {post.author_title || 'Engineer'} · {formatDate(post.created_at)}
+            </CardDescription>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="ml-auto" disabled={isProcessing}>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={handleSave} disabled={isProcessing}>
+                <Bookmark className="mr-2 h-4 w-4" />
+                {isSaved ? 'Unsave' : 'Save'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCopyLink} disabled={isProcessing}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy link to post
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleEmbed} disabled={isProcessing}>
+                <Code className="mr-2 h-4 w-4" />
+                Embed this post
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleNotInterested} disabled={isProcessing}>
+                <X className="mr-2 h-4 w-4" />
+                Not interested
+              </DropdownMenuItem>
+              {isFollowing && (
+                <DropdownMenuItem onClick={handleUnfollow} disabled={isProcessing}>
+                  <UserMinus className="mr-2 h-4 w-4" />
+                  Unfollow
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <h3 className="text-lg font-bold mb-2">{post.title}</h3>
+        <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
+          {post.content}
+        </p>
+        {post.tags && post.tags.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            {post.tags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="hover:bg-primary/10 cursor-pointer">
+                #{tag.toLowerCase().replace(/ /g, '')}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="flex justify-between items-center text-muted-foreground border-t pt-2">
+        <div className='flex gap-1'>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={`flex items-center gap-2 ${isLiked ? 'text-red-500' : ''}`}
+            onClick={handleLike}
+            disabled={isProcessing}
+          >
+            <Heart className={`h-5 w-5 ${isLiked ? 'fill-current' : ''}`} /> {likeCount}
+          </Button>
+          <Button variant="ghost" size="sm" className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" /> {post.comment_count || 0}
+          </Button>
+        </div>
+        <div className='flex gap-1'>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="flex items-center gap-2"
+            onClick={handleShare}
+            disabled={isProcessing}
+          >
+            <Send className="h-5 w-5" /> Share
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={`flex items-center gap-2 ${isSaved ? 'text-primary' : ''}`}
+            onClick={handleSave}
+            disabled={isProcessing}
+          >
+            <Bookmark className={`h-5 w-5 ${isSaved ? 'fill-current' : ''}`} /> Save
+          </Button>
+        </div>
+      </CardFooter>
+      {currentUserId && (
+        <SharePostModal
+          isOpen={isShareModalOpen}
+          onOpenChange={setIsShareModalOpen}
+          postId={post.id}
+          currentUserId={currentUserId}
+          onRepost={handleRepost}
+        />
+      )}
+    </Card>
+  );
+}
+
 export default function Home() {
   const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -174,41 +571,64 @@ export default function Home() {
   }, [supabase]);
 
   useEffect(() => {
+    let isMounted = true;
+    let channel: any = null;
+
     const fetchPosts = async () => {
-      if (!user) return;
+      if (!user || !isMounted) return;
 
       setLoadingPosts(true);
       try {
         const { data, error } = await supabase
           .from('feed_posts_view')
           .select('*')
+          .order('created_at', { ascending: false })
           .limit(10);
 
         if (error) throw error;
-        setPosts(data || []);
+        
+        // Remove duplicates based on post id - more robust
+        if (data && isMounted) {
+          const seenIds = new Set<string>();
+          const uniquePosts = data.filter((post: any) => {
+            if (!post.id || seenIds.has(post.id)) {
+              return false;
+            }
+            seenIds.add(post.id);
+            return true;
+          });
+          setPosts(uniquePosts);
+        }
       } catch (error) {
         console.error('Error fetching posts:', error);
       } finally {
-        setLoadingPosts(false);
+        if (isMounted) {
+          setLoadingPosts(false);
+        }
       }
     };
 
     fetchPosts();
 
     // Subscribe to new posts
-    const channel = supabase
-      .channel('posts-changes')
+    channel = supabase
+      .channel(`posts-changes-${user?.id || 'anon'}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'forum_posts' },
         () => {
-          fetchPosts();
+          if (isMounted) {
+            fetchPosts();
+          }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      isMounted = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [user, supabase]);
 
@@ -303,64 +723,21 @@ export default function Home() {
                 </Card>
               ) : (
                 <div className="space-y-4">
-                  {posts.map((post) => (
-                    <Card key={post.id}>
-                      <CardHeader>
-                        <div className="flex items-center gap-4">
-                          <Avatar>
-                            <AvatarImage src={post.author_avatar} alt={post.author_name} />
-                            <AvatarFallback>{post.author_name?.substring(0, 2) || 'U'}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <CardTitle className="text-base font-semibold leading-tight hover:underline cursor-pointer">
-                              {post.author_name || 'Anonymous'}
-                            </CardTitle>
-                            <CardDescription className="text-xs">
-                              {post.author_title || 'Engineer'} · {formatDate(post.created_at)}
-                            </CardDescription>
-                          </div>
-                          <Button variant="ghost" size="icon" className="ml-auto">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <Link href={`/forums/post/${post.id}`} className="hover:underline">
-                          <h3 className="text-lg font-bold mb-2">{post.title}</h3>
-                        </Link>
-                        <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
-                          {post.content}
-                        </p>
-                        {post.tags && post.tags.length > 0 && (
-                          <div className="flex gap-2 flex-wrap">
-                            {post.tags.map((tag) => (
-                              <Badge key={tag} variant="secondary" className="hover:bg-primary/10 cursor-pointer">
-                                #{tag.toLowerCase().replace(/ /g, '')}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                      <CardFooter className="flex justify-between items-center text-muted-foreground border-t pt-2">
-                        <div className='flex gap-1'>
-                          <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                            <Heart className="h-5 w-5" /> {post.like_count || 0}
-                          </Button>
-                          <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                            <MessageSquare className="h-5 w-5" /> {post.comment_count || 0}
-                          </Button>
-                        </div>
-                        <div className='flex gap-1'>
-                          <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                            <Send className="h-5 w-5" /> Share
-                          </Button>
-                          <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                            <Bookmark className="h-5 w-5" /> Save
-                          </Button>
-                        </div>
-                      </CardFooter>
-                    </Card>
-                  ))}
+                  {(() => {
+                    // Final deduplication before rendering
+                    const seenIds = new Set<string>();
+                    const uniquePosts = posts.filter((post) => {
+                      if (seenIds.has(post.id)) {
+                        return false;
+                      }
+                      seenIds.add(post.id);
+                      return true;
+                    });
+                    
+                    return uniquePosts.map((post) => (
+                      <PostCard key={post.id} post={post} currentUserId={user?.id} formatDate={formatDate} />
+                    ));
+                  })()}
                 </div>
               )
             }

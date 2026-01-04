@@ -33,6 +33,7 @@ import { EditAboutModal } from '@/app/components/profile/edit-about-modal';
 import { AddExperienceModal } from '@/app/components/profile/add-experience-modal';
 import { AddEducationModal } from '@/app/components/profile/add-education-modal';
 import { EditSkillsModal } from '@/app/components/profile/edit-skills-modal';
+import { ActivitySection } from '@/app/components/profile/activity-section';
 
 type UserProfile = {
     id: string;
@@ -298,6 +299,11 @@ export default function ProfilePage() {
                                 </Button>
                             </CardFooter>
                         </Card>
+
+                        {/* Activity Section - LinkedIn Style */}
+                        {profile && (
+                            <ActivitySection userId={profile.id} isOwnProfile={user?.id === profile.id} />
+                        )}
                     </div>
 
                     <div className="lg:col-span-1 hidden lg:block sticky top-24">

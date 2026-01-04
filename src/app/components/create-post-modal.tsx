@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,12 +12,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { sampleUserProfile } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { createClient } from '@/lib/supabase/client';
 import { Bold, Italic, Link, Code, List, ListOrdered, Quote, Image as ImageIcon, Smile, Youtube } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { User } from '@supabase/supabase-js';
 
 type CreatePostModalProps = {
   isOpen: boolean;
@@ -28,9 +28,34 @@ export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) 
   const profilePic = PlaceHolderImages.find((p) => p.id === 'profile-pic');
   const [postContent, setPostContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<any>(null);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
+
+  useEffect(() => {
+    const getUserAndProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+
+      if (user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        setProfile(profileData);
+      }
+    };
+
+    if (isOpen) {
+      getUserAndProfile();
+    }
+  }, [isOpen, supabase]);
+
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'User';
+  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || profilePic?.imageUrl;
 
   const handlePost = async () => {
     if (!postContent.trim()) return;
@@ -133,11 +158,11 @@ export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) 
         <DialogHeader>
           <div className="flex items-center gap-3">
             <Avatar>
-              <AvatarImage src={profilePic?.imageUrl} alt={sampleUserProfile.name} />
-              <AvatarFallback>{sampleUserProfile.name.substring(0, 2)}</AvatarFallback>
+              <AvatarImage src={avatarUrl} alt={displayName} />
+              <AvatarFallback>{displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div>
-              <DialogTitle className="text-base font-semibold">{sampleUserProfile.name}</DialogTitle>
+              <DialogTitle className="text-base font-semibold">{displayName}</DialogTitle>
               <p className="text-sm text-muted-foreground">Post to anyone</p>
             </div>
           </div>

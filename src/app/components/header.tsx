@@ -48,12 +48,12 @@ export function Header() {
                     key={link.href}
                     href={link.href}
                     className={cn(
-                        'flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-20',
+                        'flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-24',
                         // Add active styles here based on pathname
                     )}
                     >
                     <link.icon className="h-6 w-6" />
-                    <span>{link.label}</span>
+                    <span className="truncate">{link.label}</span>
                 </Link>
                 ))}
           </div>
@@ -61,9 +61,9 @@ export function Header() {
 
         <div className="flex items-center gap-4">
             <div className="hidden lg:flex items-center space-x-1 border-l pl-4">
-                <Link href="/for-business" className="flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-24">
+                <Link href="/for-business" className="flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-24 text-center">
                     <GanttChartSquare className="h-6 w-6" />
-                    <span>For Business</span>
+                    <span className="truncate">For Business</span>
                 </Link>
                 <Link href="/social-impact" className="flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-28 text-center">
                     <HeartHandshake className="h-6 w-6" />

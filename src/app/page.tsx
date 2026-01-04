@@ -8,6 +8,8 @@ import {
   Newspaper,
   BookCopy,
   Calendar,
+  Rss,
+  Building,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +41,9 @@ function ProfileCard() {
                 </Avatar>
             </div>
             <CardContent className="text-center pt-12 pb-4">
-                <h2 className="text-xl font-bold hover:underline cursor-pointer">{sampleUserProfile.name}</h2>
+                <Link href="/profile">
+                  <h2 className="text-xl font-bold hover:underline cursor-pointer">{sampleUserProfile.name}</h2>
+                </Link>
                 <p className="text-sm text-muted-foreground mt-1">Full-Stack Developer @EFS</p>
             </CardContent>
             <Separator />
@@ -57,24 +61,40 @@ function ProfileCard() {
             <CardContent className="p-4">
                  <div className="hover:bg-muted p-2 rounded-md cursor-pointer">
                     <p className="text-xs text-muted-foreground">Achieve your goals with Premium</p>
-                    <p className="font-semibold text-sm hover:underline">Try Premium for BDT0</p>
+                    <p className="font-semibold text-sm hover:underline">Try Premium for $0</p>
                 </div>
             </CardContent>
              <Separator />
-             <CardContent className="p-4 space-y-2 text-sm">
+             <CardContent className="p-4">
                 <div className="flex items-center gap-2 hover:bg-muted p-2 rounded-md cursor-pointer">
                     <Bookmark className="h-4 w-4 text-muted-foreground" />
                     <span className="font-semibold">Saved Items</span>
                 </div>
-                <div className="flex items-center gap-2 hover:bg-muted p-2 rounded-md cursor-pointer">
-                    <Newspaper className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-semibold">Newsletters</span>
-                </div>
-                 <div className="flex items-center gap-2 hover:bg-muted p-2 rounded-md cursor-pointer">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-semibold">Events</span>
-                </div>
              </CardContent>
+        </Card>
+    )
+}
+
+function RecentActivityCard() {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-base">Recent Activity</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+                <div className="flex flex-col gap-1 hover:bg-muted p-2 -m-2 rounded-md cursor-pointer">
+                    <span className="font-semibold text-muted-foreground flex items-center gap-2"><Rss className="h-4 w-4" /> #javascript</span>
+                    <p className="text-xs text-muted-foreground">You posted 2 new articles</p>
+                </div>
+                 <div className="flex flex-col gap-1 hover:bg-muted p-2 -m-2 rounded-md cursor-pointer">
+                    <span className="font-semibold text-muted-foreground flex items-center gap-2"><Building className="h-4 w-4" /> Company Updates</span>
+                    <p className="text-xs text-muted-foreground">Innovate AI just posted a new job</p>
+                </div>
+            </CardContent>
+            <Separator />
+             <CardFooter>
+                <Link href="/forums" className="text-sm font-semibold text-primary hover:underline w-full pt-4 text-center">See all activity</Link>
+             </CardFooter>
         </Card>
     )
 }
@@ -84,6 +104,7 @@ export default function Home() {
     <div className="grid lg:grid-cols-4 gap-8 items-start">
       <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
         <ProfileCard />
+        <RecentActivityCard />
       </aside>
 
       <main className="lg:col-span-2 space-y-6">
@@ -100,9 +121,10 @@ export default function Home() {
               />
             </div>
           </CardHeader>
-           <CardFooter className="flex justify-between">
+           <CardFooter className="flex justify-around">
                 <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><BookCopy className="text-sky-500"/> Write article</Button>
                 <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Calendar className="text-amber-500" /> Create event</Button>
+                <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Newspaper className="text-rose-500" /> Post a job</Button>
            </CardFooter>
         </Card>
 
@@ -131,8 +153,10 @@ export default function Home() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <h3 className="text-lg font-bold mb-2">{post.title}</h3>
-                  <p className="text-muted-foreground text-sm mb-4">
+                  <Link href="#" className="hover:underline">
+                    <h3 className="text-lg font-bold mb-2">{post.title}</h3>
+                  </Link>
+                  <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
                     {post.content}
                   </p>
                   <div className="flex gap-2 flex-wrap">
@@ -151,11 +175,13 @@ export default function Home() {
                         <Button variant="ghost" size="sm" className="flex items-center gap-2">
                             <MessageSquare className="h-5 w-5" /> {post.commentCount}
                         </Button>
+                    </div>
+                    <div className='flex gap-1'>
                         <Button variant="ghost" size="sm" className="flex items-center gap-2">
                             <Send className="h-5 w-5" /> Share
                         </Button>
                          <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                            <Bookmark className="h-5 w-5" />
+                            <Bookmark className="h-5 w-5" /> Save
                         </Button>
                     </div>
                 </CardFooter>

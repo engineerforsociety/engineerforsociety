@@ -7,7 +7,10 @@ import {
   Bell,
   Search,
   GanttChartSquare,
-  HeartHandshake
+  HeartHandshake,
+  BookOpen,
+  Podcast,
+  Network
 } from 'lucide-react';
 import { Logo } from './icons';
 import { cn } from '@/lib/utils';
@@ -17,16 +20,19 @@ import { Input } from '@/components/ui/input';
 
 const links = [
   { href: '/', label: 'Home', icon: Home },
-  { href: '/forums', label: 'My Network', icon: Users },
+  { href: '/forums', label: 'My Network', icon: Network },
   { href: '/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/messages', label: 'Messaging', icon: MessageSquare },
   { href: '/notifications', label: 'Notifications', icon: Bell },
+  { href: '/projects', label: 'Projects', icon: GanttChartSquare},
+  { href: '/podcasts', label: 'Podcasts', icon: Podcast},
+  { href: '/resources', label: 'Resources', icon: BookOpen},
 ];
 
 export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background">
-      <div className="container flex h-16 items-center px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <div className="container flex h-16 items-center px-4 sm:px-6 lg:px-8 max-w-screen-2xl mx-auto">
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center gap-2">
             <Logo className="h-8 w-8 text-primary" />
@@ -61,14 +67,14 @@ export function Header() {
 
         <div className="flex items-center gap-4">
             <div className="hidden lg:flex items-center space-x-1 border-l pl-4">
-                <Link href="/for-business" className="flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-24 text-center">
-                    <GanttChartSquare className="h-6 w-6" />
-                    <span className="truncate">For Business</span>
+                <Link href="/chapters" className="flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-24 text-center">
+                    <Users className="h-6 w-6" />
+                    <span className="truncate">Chapters</span>
                 </Link>
-                <Link href="/social-impact" className="flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-28 text-center">
+                <div className="flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground w-28 text-center">
                     <HeartHandshake className="h-6 w-6" />
-                    <span className="text-amber-700 underline">Try Premium</span>
-                </Link>
+                    <span className="text-amber-700 underline cursor-pointer">Try Premium</span>
+                </div>
             </div>
           <UserNav />
         </div>

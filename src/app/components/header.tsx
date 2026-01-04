@@ -48,6 +48,9 @@ const secondaryLinks = [
     { href: '/chapters', label: 'Chapters', icon: Users},
 ]
 
+const allLinks = [...topLinks, ...secondaryLinks];
+
+
 function DesktopNav() {
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background hidden md:block">
@@ -68,7 +71,7 @@ function DesktopNav() {
 
                 <nav className="flex-1 flex justify-center ml-12">
                     <div className="flex items-center space-x-1">
-                        {topLinks.map((link) => (
+                        {allLinks.map((link) => (
                         <Link
                             key={link.href}
                             href={link.href}
@@ -84,26 +87,12 @@ function DesktopNav() {
                 </nav>
 
                 <div className="flex items-center gap-4">
-                    <Sheet>
-                        <SheetTrigger asChild>
-                            <div className="hidden lg:flex items-center space-x-1 border-l pl-4 cursor-pointer">
-                                <div className="flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground w-28 text-center">
-                                    <HeartHandshake className="h-6 w-6" />
-                                    <span className="text-amber-700 underline">Work & more</span>
-                                </div>
-                            </div>
-                        </SheetTrigger>
-                        <SheetContent>
-                             <div className="grid grid-cols-2 gap-4 mt-8">
-                                {secondaryLinks.map(link => (
-                                    <Link key={link.href} href={link.href} className="flex flex-col items-center justify-center p-4 rounded-lg bg-muted hover:bg-accent transition-colors">
-                                        <link.icon className="h-8 w-8 text-primary mb-2" />
-                                        <span className="text-sm font-medium text-center">{link.label}</span>
-                                    </Link>
-                                ))}
-                            </div>
-                        </SheetContent>
-                    </Sheet>
+                    <div className="hidden lg:flex items-center space-x-1 border-l pl-4 cursor-pointer">
+                        <div className="flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground w-28 text-center">
+                            <HeartHandshake className="h-6 w-6" />
+                            <span className="text-amber-700 underline">Try Premium</span>
+                        </div>
+                    </div>
                     <UserNav />
                 </div>
             </div>

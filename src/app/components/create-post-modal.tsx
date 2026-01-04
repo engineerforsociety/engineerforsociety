@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { 
     Dialog, 
     DialogContent, 
@@ -16,6 +16,7 @@ import { sampleUserProfile } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Bold, Italic, Link, Code, List, ListOrdered, Quote, Image as ImageIcon, Smile, Youtube } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
 
 type CreatePostModalProps = {
   isOpen: boolean;
@@ -25,13 +26,50 @@ type CreatePostModalProps = {
 export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) {
   const profilePic = PlaceHolderImages.find((p) => p.id === 'profile-pic');
   const [postContent, setPostContent] = useState('');
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handlePost = () => {
     console.log('Posting content:', postContent);
     // Here you would typically call an API to save the post
+    toast({
+      title: "Post created!",
+      description: "Your post has been successfully shared.",
+    });
     setPostContent('');
     onOpenChange(false);
   };
+  
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+        // In a real app, you'd upload this file and get a URL
+        console.log('Selected file:', file.name);
+        toast({
+            title: "Image selected",
+            description: `${file.name} is ready to be uploaded.`,
+        });
+    }
+  }
+  
+  const handleYoutubeClick = () => {
+    toast({
+      title: "Feature coming soon!",
+      description: "Pasting YouTube links will automatically embed videos in a future update.",
+    });
+  }
+
+  const handleEmojiClick = () => {
+      toast({
+      title: "Feature coming soon!",
+      description: "An emoji picker will be available here.",
+    });
+  }
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -56,12 +94,13 @@ export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) 
             onChange={(e) => setPostContent(e.target.value)}
           />
         </div>
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon"><ImageIcon className="text-muted-foreground" /></Button>
-                <Button variant="ghost" size="icon"><Youtube className="text-muted-foreground" /></Button>
+                <Button variant="ghost" size="icon" onClick={handleImageClick}><ImageIcon className="text-muted-foreground" /></Button>
+                <Button variant="ghost" size="icon" onClick={handleYoutubeClick}><Youtube className="text-muted-foreground" /></Button>
             </div>
-            <Button variant="ghost" size="sm" className="text-muted-foreground">
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={handleEmojiClick}>
                 <Smile className="mr-2 h-4 w-4" />
                 Emoji
             </Button>

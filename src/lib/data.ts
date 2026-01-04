@@ -102,3 +102,39 @@ export const sampleUsersToFollow = [
 ]
 
 export const sampleTrendingTopics = ['#SustainableTech', '#GenAI', '#CareerAdvice', '#ProjectManagement', '#Web3'];
+
+export const sampleProjects = [
+  {
+    id: 'proj-1',
+    title: 'Community Garden Automation',
+    description: 'An IoT system to monitor and automate watering for urban community gardens.',
+    technologies: ['IoT', 'Python', 'React', 'Firebase'],
+    owner: { name: 'Samantha Chen', avatarId: 'podcast-3' },
+    isSeekingCollaborators: true,
+    likeCount: 152,
+    viewCount: 2340,
+    imageId: 'project-1'
+  },
+  {
+    id: 'proj-2',
+    title: 'Open Source Braille Reader',
+    description: 'A low-cost, 3D-printable Braille e-reader for visually impaired individuals.',
+    technologies: ['3D Printing', 'C++', 'Hardware'],
+    owner: { name: 'Alex Doe', avatarId: 'profile-pic' },
+    isSeekingCollaborators: false,
+    likeCount: 341,
+    viewCount: 5120,
+    imageId: 'project-2'
+  },
+  {
+    id: 'proj-3',
+    title: 'AI-Powered Fake News Detector',
+    description: 'A browser extension that uses natural language processing to detect misinformation in real-time.',
+    technologies: ['AI/ML', 'TensorFlow', 'JavaScript'],
+    owner: { name: 'Jane Doe', avatarId: 'mentorship' },
+    isSeekingCollaborators: true,
+    likeCount: 218,
+    viewCount: 4890,
+    imageId: 'project-3'
+  }
+];

@@ -65,6 +65,24 @@
       "description": "Skills exchange image",
       "imageUrl": "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx0ZWFtJTIwY29sbGFib3JhdGlvbnxlbnwwfHx8fDE3Njc0NTAwMTl8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "team collaboration"
+    },
+    {
+      "id": "project-1",
+      "description": "Community garden project image",
+      "imageUrl": "https://images.unsplash.com/photo-1593439193792-7b443376f9e5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxjb21tdW5pdHklMjBnYXJkZW58ZW58MHx8fHwxNzY3NTkzMjMwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "community garden"
+    },
+    {
+      "id": "project-2",
+      "description": "Braille reader project image",
+      "imageUrl": "https://images.unsplash.com/photo-1614704624953-53a5c1a01124?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxyZWFkaW5nJTIwZGV2aWNlfGVufDB8fHx8MTc2NzU5MzI1OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "reading device"
+    },
+    {
+      "id": "project-3",
+      "description": "Fake news detector project image",
+      "imageUrl": "https://images.unsplash.com/photo-1611162617474-5b21e879e113?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxuZXdzJTIwYXBwfGVufDB8fHx8MTc2NzU5MzI4OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "news app"
     }
   ]
 }

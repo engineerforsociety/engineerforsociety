@@ -21,6 +21,7 @@ import {
   Mic,
   Settings,
   User,
+  GitBranch,
 } from 'lucide-react';
 import { Logo } from './icons';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ import { Button } from '@/components/ui/button';
 const links = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/forums', label: 'Forums', icon: MessageSquare },
+  { href: '/projects', label: 'Projects', icon: GitBranch },
   { href: '/social-impact', label: 'Social Impact', icon: HeartHandshake },
   { href: '/podcasts', label: 'Podcasts', icon: Mic },
   { href: '/resources', label: 'Resources', icon: BookCopy },

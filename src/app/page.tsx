@@ -1,3 +1,4 @@
+
 import {
   MessageSquare,
   Heart,
@@ -111,10 +112,12 @@ export default function Home() {
       <main className="lg:col-span-2 space-y-6">
         <Card>
           <CardHeader className="flex flex-row items-center gap-4">
+            <Link href="/profile">
              <Avatar className="h-12 w-12">
                 <AvatarImage src={profilePic?.imageUrl} alt={sampleUserProfile.name} data-ai-hint={profilePic?.imageHint} />
                 <AvatarFallback>{sampleUserProfile.name.substring(0,2)}</AvatarFallback>
             </Avatar>
+            </Link>
             <div className="flex-1">
               <input
                 placeholder="Start a post"

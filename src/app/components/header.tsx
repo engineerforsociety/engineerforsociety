@@ -208,7 +208,10 @@ function MobileNav() {
 
 export function Header() {
     const isMobile = useIsMobile();
-    if(isMobile === undefined) return <div className="h-16 w-full" />; // Placeholder to prevent layout shift
+    if(isMobile === undefined) {
+        // Return a placeholder for the desktop header height to prevent layout shift
+        return <div className="h-16 w-full hidden md:block" />;
+    };
 
     return isMobile ? <MobileNav /> : <DesktopNav />;
 }

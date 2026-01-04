@@ -23,13 +23,13 @@ export default function RootLayout({
       </head>
       <body className={cn("font-body antialiased bg-muted/40")}>
         <Header />
-        <main className="p-4 sm:p-6 lg:p-8 pt-20 md:pt-8">
+        <main className="p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto">
                 {children}
             </div>
         </main>
         {/* Add padding to the bottom to avoid content being hidden by the mobile nav */}
-        <div className="h-16 md:hidden"></div>
+        <div className="pb-16 md:pb-0"></div>
         <Toaster />
       </body>
     </html>

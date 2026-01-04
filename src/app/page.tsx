@@ -45,7 +45,7 @@ function ProfileCard() {
             </div>
             <CardContent className="text-center pt-12 pb-4">
                 <Link href="/profile">
-                  <h2 className="text-xl font-bold hover:underline cursor-pointer">{sampleUserProfile.name}</h2>
+                  <h2 className="text-xl font-bold cursor-pointer">{sampleUserProfile.name}</h2>
                 </Link>
                 <p className="text-sm text-muted-foreground mt-1">Full-Stack Developer @EFS</p>
             </CardContent>

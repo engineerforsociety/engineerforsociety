@@ -33,3 +33,72 @@ export const sampleJobPostings: JobPosting[] = [
     requirements: '8+ years of software development experience, with at least 2 years in a leadership or management role. Excellent project management and communication skills.',
   },
 ];
+
+export const sampleForumPosts = [
+  {
+    id: 'post-1',
+    author: {
+      name: 'Dr. Evelyn Reed',
+      title: 'Quantum Computing Researcher',
+      avatarId: 'podcast-1'
+    },
+    createdAt: '2h ago',
+    title: 'The Ethical Implications of Advanced AI',
+    content: 'As AI models become more powerful, we need to have a serious conversation about the ethical guardrails. What are your thoughts on creating a Hippocratic oath for AI developers?',
+    tags: ['AI Ethics', 'Philosophy', 'Future of Tech'],
+    likeCount: 128,
+    commentCount: 42,
+  },
+  {
+    id: 'post-2',
+    author: {
+      name: 'Ben Carter',
+      title: 'DevOps Engineer',
+      avatarId: 'podcast-2'
+    },
+    createdAt: '5h ago',
+    title: 'My Favorite CI/CD Pipeline Setup for Next.js',
+    content: 'After trying a dozen tools, I\'ve settled on a combo of GitHub Actions, Docker, and Vercel for my Next.js projects. It\'s fast, reliable, and has a great developer experience. Here is a quick rundown of my config...',
+    tags: ['Next.js', 'DevOps', 'Web Development'],
+    likeCount: 76,
+    commentCount: 15,
+  },
+  {
+    id: 'post-3',
+    author: {
+      name: 'Samantha Chen',
+      title: 'Environmental Engineer',
+      avatarId: 'podcast-3'
+    },
+    createdAt: '1d ago',
+    title: 'New Bioplastics That Could Reduce Ocean Pollution',
+    content: 'Exciting news from my lab! We\'ve developed a new type of bioplastic derived from algae that degrades in saltwater within 90 days. This could be a game-changer for reducing plastic waste in our oceans.',
+    tags: ['Sustainability', 'Materials Science', 'Environment'],
+    likeCount: 543,
+    commentCount: 112,
+  }
+];
+
+
+export const sampleUsersToFollow = [
+    {
+        id: 'user-1',
+        name: 'Jane Doe',
+        title: 'Lead ML Engineer @ Innovate AI',
+        avatarId: 'mentorship'
+    },
+    {
+        id: 'user-2',
+        name: 'Carlos Gomez',
+        title: 'Founder, CleanWater Collective',
+        avatarId: 'skills-exchange'
+    },
+    {
+        id: 'user-3',
+        name: 'Aisha Khan',
+        title: 'Robotics Engineer',
+        avatarId: 'profile-pic'
+    }
+]
+
+export const sampleTrendingTopics = ['#SustainableTech', '#GenAI', '#CareerAdvice', '#ProjectManagement', '#Web3'];

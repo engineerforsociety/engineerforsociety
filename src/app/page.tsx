@@ -100,6 +100,7 @@ function RecentActivityCard() {
 }
 
 export default function Home() {
+  const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
   return (
     <div className="grid lg:grid-cols-4 gap-8 items-start">
       <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
@@ -110,9 +111,9 @@ export default function Home() {
       <main className="lg:col-span-2 space-y-6">
         <Card>
           <CardHeader className="flex flex-row items-center gap-4">
-            <Avatar className="h-12 w-12">
-              <AvatarImage src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3Njc1MTExMDd8MA&ixlib=rb-4.1.0&q=80&w=1080" alt="Alex Doe" />
-              <AvatarFallback>AD</AvatarFallback>
+             <Avatar className="h-12 w-12">
+                <AvatarImage src={profilePic?.imageUrl} alt={sampleUserProfile.name} data-ai-hint={profilePic?.imageHint} />
+                <AvatarFallback>{sampleUserProfile.name.substring(0,2)}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <input
@@ -191,7 +192,7 @@ export default function Home() {
         </div>
       </main>
 
-      <aside className="lg:col-span-1 space-y-6 sticky top-24">
+      <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
         <Card>
           <CardHeader>
             <CardTitle>Add to your feed</CardTitle>

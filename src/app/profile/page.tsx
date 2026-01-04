@@ -14,33 +14,37 @@ function ProfileHeaderCard() {
 
     return (
         <Card className="overflow-hidden">
-            <div className="relative h-32 md:h-48 w-full">
+            <div className="relative h-24 md:h-48 w-full">
                 {heroImage && <Image src={heroImage.imageUrl} alt="Profile background" fill className="object-cover" data-ai-hint={heroImage.imageHint} />}
                 <div className="absolute top-4 right-4">
-                    <Button variant="outline" size="icon" className="bg-background/80 hover:bg-background">
+                    <Button variant="outline" size="icon" className="bg-background/80 hover:bg-background h-8 w-8">
                         <Edit className="h-4 w-4"/>
                     </Button>
                 </div>
-                 <Avatar className="h-28 w-28 md:h-36 md:w-36 absolute -bottom-16 md:-bottom-20 left-6 border-4 border-background">
+                 <Avatar className="h-24 w-24 md:h-36 md:w-36 absolute -bottom-12 md:-bottom-20 left-4 md:left-6 border-4 border-background">
                     <AvatarImage src={profilePic?.imageUrl} alt={sampleUserProfile.name} data-ai-hint={profilePic?.imageHint} />
                     <AvatarFallback>{sampleUserProfile.name.substring(0,2)}</AvatarFallback>
                 </Avatar>
             </div>
-            <CardHeader className="pt-20 md:pt-24 pb-4">
-                <div className="flex justify-end">
-                     <Button variant="secondary"><Edit className="mr-2 h-4 w-4" /> Edit Profile</Button>
-                </div>
-                <CardTitle className="text-2xl md:text-3xl font-bold">{sampleUserProfile.name}</CardTitle>
-                <p className="text-base text-muted-foreground">Full-Stack Developer @EFS | Using tech for social good</p>
-                <div className="text-sm text-muted-foreground flex gap-4 pt-2">
-                    <span className="flex items-center gap-1"><MapPin className="h-4 w-4"/> San Francisco, CA</span>
-                    <Link href="#" className="text-primary font-semibold hover:underline">Contact info</Link>
-                </div>
-                 <div className="pt-2">
-                    <Link href="#" className="text-primary font-semibold hover:underline text-sm">128 connections</Link>
+            <CardHeader className="pt-14 md:pt-24 pb-4">
+                <div className="flex flex-col md:flex-row justify-between items-start">
+                    <div className="w-full">
+                        <CardTitle className="text-2xl md:text-3xl font-bold">{sampleUserProfile.name}</CardTitle>
+                        <p className="text-base text-muted-foreground">Full-Stack Developer @EFS | Using tech for social good</p>
+                        <div className="text-sm text-muted-foreground flex items-center gap-2 md:gap-4 pt-2 flex-wrap">
+                            <span className="flex items-center gap-1"><MapPin className="h-4 w-4"/> San Francisco, CA</span>
+                            <Link href="#" className="text-primary font-semibold hover:underline">Contact info</Link>
+                        </div>
+                        <div className="pt-2">
+                            <Link href="#" className="text-primary font-semibold hover:underline text-sm">128 connections</Link>
+                        </div>
+                    </div>
+                    <div className="flex-shrink-0 pt-4 md:pt-0">
+                         <Button variant="secondary" className="w-full md:w-auto"><Edit className="mr-2 h-4 w-4" /> Edit Profile</Button>
+                    </div>
                 </div>
             </CardHeader>
-            <CardFooter className="gap-2">
+            <CardFooter className="gap-2 flex-wrap">
                  <Button>
                     <Plus className="mr-2 h-4 w-4"/> Follow
                 </Button>
@@ -121,7 +125,7 @@ export default function ProfilePage() {
                         <CardTitle>Experience</CardTitle>
                         <Button variant="ghost" size="icon"><Plus className="h-4 w-4" /></Button>
                     </div>
-                </CardHeader>
+                </DardHeader>
                 <CardContent>
                     <div className="flex gap-4">
                         <Briefcase className="h-8 w-8 text-primary mt-1"/>
@@ -162,7 +166,7 @@ export default function ProfilePage() {
                 </CardContent>
             </Card>
         </main>
-        <aside className="lg:col-span-1 space-y-6 sticky top-24">
+        <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
              <Card>
                 <CardHeader>
                     <CardTitle className="text-base">Profile Language</CardTitle>

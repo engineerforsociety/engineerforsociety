@@ -28,6 +28,8 @@ export default function RootLayout({
                 {children}
             </div>
         </main>
+        {/* Add padding to the bottom to avoid content being hidden by the mobile nav */}
+        <div className="h-16 md:hidden"></div>
         <Toaster />
       </body>
     </html>

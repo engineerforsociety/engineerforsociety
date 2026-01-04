@@ -1,3 +1,70 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "profile-pic",
+      "description": "User profile picture",
+      "imageUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3Njc1MTExMDd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "podcast-1",
+      "description": "Podcast episode thumbnail 1",
+      "imageUrl": "https://images.unsplash.com/photo-1568952433726-3896e3881c65?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHx0ZWNobm9sb2d5JTIwYWJzdHJhY3R8ZW58MHx8fHwxNzY3NDg2Mzk4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "technology abstract"
+    },
+    {
+      "id": "podcast-2",
+      "description": "Podcast episode thumbnail 2",
+      "imageUrl": "https://images.unsplash.com/photo-1760012945940-74d6bf54c0fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxpbm5vdmF0aW9uJTIwZnV0dXJlfGVufDB8fHx8MTc2NzUxNTE0OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "innovation future"
+    },
+    {
+      "id": "podcast-3",
+      "description": "Podcast episode thumbnail 3",
+      "imageUrl": "https://images.unsplash.com/photo-1586920740280-e7da670f7cb7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxjaXJjdWl0cyUyMG1vdGhlcmJvYXJkfGVufDB8fHx8MTc2NzUxNTE0OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "circuits motherboard"
+    },
+    {
+      "id": "event-1",
+      "description": "Community event image 1",
+      "imageUrl": "https://images.unsplash.com/photo-1625246433906-6cfa33544b31?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxjb21tdW5pdHklMjBnYXRoZXJpbmd8ZW58MHx8fHwxNzY3NDEzMjg0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "community gathering"
+    },
+    {
+      "id": "event-2",
+      "description": "Community event image 2",
+      "imageUrl": "https://images.unsplash.com/photo-1765438863717-49fca900f861?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHx3b3Jrc2hvcCUyMGNvbmZlcmVuY2V8ZW58MHx8fHwxNzY3NTE1MTQ5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "workshop conference"
+    },
+    {
+      "id": "chapters-map",
+      "description": "Placeholder map for local chapters",
+      "imageUrl": "https://images.unsplash.com/photo-1566935843973-aed0ddcb0ecc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3b3JsZCUyMG1hcHxlbnwwfHx8fDE3Njc1MDYyMzh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "world map"
+    },
+    {
+      "id": "hero-image",
+      "description": "Generic hero image for page headers",
+      "imageUrl": "https://images.unsplash.com/photo-1544214036-5aaeb9e32d11?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxjaXR5JTIwc2t5bGluZXxlbnwwfHx8fDE3Njc0MTQ0NDB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "city skyline"
+    },
+    {
+      "id": "blood-drive",
+      "description": "Blood donation drive image",
+      "imageUrl": "https://images.unsplash.com/photo-1638202993928-7267aad84c31?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxoZWFsdGglMjBjYXJlfGVufDB8fHx8MTc2NzQ0NTg3MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "health care"
+    },
+    {
+      "id": "mentorship",
+      "description": "Mentorship program image",
+      "imageUrl": "https://images.unsplash.com/photo-1631885627891-19651751251f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwZW9wbGUlMjB0YWxraW5nfGVufDB8fHx8MTc2NzQxOTI3Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "people talking"
+    },
+    {
+      "id": "skills-exchange",
+      "description": "Skills exchange image",
+      "imageUrl": "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx0ZWFtJTIwY29sbGFib3JhdGlvbnxlbnwwfHx8fDE3Njc0NTAwMTl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "team collaboration"
+    }
+  ]
 }

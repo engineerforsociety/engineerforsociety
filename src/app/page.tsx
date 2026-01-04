@@ -76,7 +76,7 @@ function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
       </div>
       <CardContent className="text-center pt-12 pb-4">
         <Link href="/profile">
-          <h2 className="text-xl font-bold cursor-pointer">{displayName}</h2>
+          <h2 className="text-xl font-bold cursor-pointer hover:underline">{displayName}</h2>
         </Link>
         <p className="text-sm text-muted-foreground mt-1">
           {profile?.job_title || 'Add professional headline'}
@@ -165,7 +165,9 @@ export default function Home() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      setLoading(false);
+      if (!session?.user) {
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -247,7 +249,7 @@ export default function Home() {
   const avatarUrl = user?.user_metadata?.avatar_url || profilePic?.imageUrl;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8 bg-muted/40">
       <div className="max-w-7xl mx-auto">
         <CreatePostModal isOpen={isModalOpen} onOpenChange={setIsModalOpen} />
         <div className="grid lg:grid-cols-4 gap-8 items-start">

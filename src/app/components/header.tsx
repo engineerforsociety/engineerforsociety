@@ -15,6 +15,11 @@ import {
   Podcast,
   Network,
   Plus,
+  Menu,
+  User,
+  CreditCard,
+  Settings,
+  LogOut,
 } from 'lucide-react';
 import { Logo } from './icons';
 import { cn } from '@/lib/utils';
@@ -22,7 +27,11 @@ import { Button } from '@/components/ui/button';
 import { UserNav } from './user-nav';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
+import { sampleUserProfile } from '@/lib/data';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const topLinks = [
   { href: '/', label: 'Home', icon: Home },
@@ -103,31 +112,103 @@ function DesktopNav() {
 }
 
 function MobileNav() {
+    const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
     return (
         <>
             <header className="sticky top-0 z-50 w-full border-b bg-background md:hidden">
                  <div className="container flex h-16 items-center px-4">
-                     <Link href="/" className="flex items-center gap-2">
+                    <Sheet>
+                        <SheetTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <Menu className="h-6 w-6" />
+                                <span className="sr-only">Open Menu</span>
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent side="left" className="p-0 w-3/4">
+                           <div className="flex flex-col h-full">
+                                <div className="p-4 border-b">
+                                    <Link href="/profile" className="flex items-center gap-3">
+                                        <Avatar className="h-10 w-10">
+                                            <AvatarImage src={profilePic?.imageUrl} alt={sampleUserProfile.name} />
+                                            <AvatarFallback>{sampleUserProfile.name.substring(0, 2)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-semibold">{sampleUserProfile.name}</p>
+                                            <p className="text-xs text-muted-foreground">View Profile</p>
+                                        </div>
+                                    </Link>
+                                </div>
+                                <div className="p-4">
+                                     <Button variant="outline" className="w-full text-amber-700 border-amber-700">Try Premium for $0</Button>
+                                </div>
+                                <Separator />
+                                <nav className="flex-1 overflow-y-auto">
+                                    <div className="p-4 space-y-2">
+                                        <h3 className="px-2 text-sm font-semibold text-muted-foreground">Navigation</h3>
+                                        {topLinks.map(link => (
+                                            <SheetClose asChild key={link.href}>
+                                                <Link href={link.href} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent">
+                                                    <link.icon className="h-5 w-5 text-muted-foreground" />
+                                                    <span className="font-medium">{link.label}</span>
+                                                </Link>
+                                            </SheetClose>
+                                        ))}
+                                    </div>
+                                    <Separator />
+                                    <div className="p-4 space-y-2">
+                                        <h3 className="px-2 text-sm font-semibold text-muted-foreground">Work & More</h3>
+                                        {secondaryLinks.map(link => (
+                                             <SheetClose asChild key={link.href}>
+                                                <Link href={link.href} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent">
+                                                    <link.icon className="h-5 w-5 text-muted-foreground" />
+                                                    <span className="font-medium">{link.label}</span>
+                                                </Link>
+                                            </SheetClose>
+                                        ))}
+                                    </div>
+                                </nav>
+                                <Separator />
+                                 <div className="p-4 space-y-2">
+                                    <SheetClose asChild>
+                                        <Link href="/profile" className="flex items-center gap-3 p-2 rounded-md hover:bg-accent">
+                                            <Settings className="h-5 w-5 text-muted-foreground" />
+                                            <span>Settings</span>
+                                        </Link>
+                                    </SheetClose>
+                                    <SheetClose asChild>
+                                        <Link href="#" className="flex items-center gap-3 p-2 rounded-md hover:bg-accent">
+                                            <LogOut className="h-5 w-5 text-muted-foreground" />
+                                            <span>Log out</span>
+                                        </Link>
+                                    </SheetClose>
+                                </div>
+                           </div>
+                        </SheetContent>
+                    </Sheet>
+
+                    <Link href="/" className="mx-auto">
                         <Logo className="h-8 w-8 text-primary" />
                     </Link>
-                    <div className="flex-1 flex justify-end items-center gap-2">
+                    
+                    <div className="flex items-center gap-2">
                         <Button variant="ghost" size="icon"><Search className="h-6 w-6" /></Button>
-                        <UserNav />
+                        <Button variant="ghost" size="icon"><MessageSquare className="h-6 w-6" /></Button>
                     </div>
                  </div>
             </header>
-            <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden">
+
+            <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background md:hidden">
                 <div className="grid h-16 grid-cols-5 items-center justify-items-center">
                      {topLinks.map((link) => (
                         <Link
                             key={link.href}
                             href={link.href}
                             className={cn(
-                                'flex flex-col items-center justify-center gap-1 rounded-md p-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                                'flex flex-col items-center justify-center gap-1 rounded-md p-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-full',
                             )}
                             >
                             <link.icon className="h-6 w-6" />
-                            <span className="truncate">{link.label}</span>
+                            <span className="truncate sr-only">{link.label}</span>
                         </Link>
                      ))}
                 </div>
@@ -138,7 +219,7 @@ function MobileNav() {
 
 export function Header() {
     const isMobile = useIsMobile();
-    if(isMobile === undefined) return null; // Avoid hydration mismatch
+    if(isMobile === undefined) return <div className="h-16 w-full" />; // Placeholder to prevent layout shift
 
     return isMobile ? <MobileNav /> : <DesktopNav />;
 }

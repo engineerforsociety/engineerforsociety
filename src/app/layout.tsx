@@ -23,7 +23,7 @@ export default function RootLayout({
       </head>
       <body className={cn("font-body antialiased bg-muted/40")}>
         <Header />
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main className="p-4 sm:p-6 lg:p-8 pt-20 md:pt-8">
             <div className="max-w-7xl mx-auto">
                 {children}
             </div>

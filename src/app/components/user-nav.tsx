@@ -10,21 +10,27 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CreditCard, LogOut, Settings, User } from 'lucide-react';
+import { CreditCard, LogOut, Settings, User, ChevronDown } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { sampleUserProfile } from '@/lib/data';
+import { cn } from '@/lib/utils';
 
 export function UserNav() {
     const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={profilePic?.imageUrl} alt="@shadcn" data-ai-hint={profilePic?.imageHint} />
-            <AvatarFallback>{sampleUserProfile.name.substring(0,2)}</AvatarFallback>
-          </Avatar>
-        </Button>
+        <div className={cn(
+            'flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer w-24'
+        )}>
+            <Avatar className="h-6 w-6">
+                <AvatarImage src={profilePic?.imageUrl} alt={sampleUserProfile.name} data-ai-hint={profilePic?.imageHint} />
+                <AvatarFallback>{sampleUserProfile.name.substring(0,2)}</AvatarFallback>
+            </Avatar>
+            <span className="flex items-center">
+                Me <ChevronDown className="h-4 w-4" />
+            </span>
+        </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">

@@ -27,11 +27,13 @@ import { Button } from '@/components/ui/button';
 import { UserNav } from './user-nav';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { sampleUserProfile } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+
 
 const topLinks = [
   { href: '/', label: 'Home', icon: Home },
@@ -113,7 +115,10 @@ function MobileNav() {
                                 <span className="sr-only">Open Menu</span>
                             </Button>
                         </SheetTrigger>
-                        <SheetContent side="left" className="p-0 w-3/4">
+                        <SheetContent side="left" className="p-0 w-3/4 flex flex-col">
+                            <VisuallyHidden>
+                                <SheetTitle>Navigation Menu</SheetTitle>
+                            </VisuallyHidden>
                            <div className="flex flex-col h-full">
                                 <div className="p-4 border-b">
                                     <Link href="/profile" className="flex items-center gap-3">
@@ -193,7 +198,7 @@ function MobileNav() {
                             key={link.href}
                             href={link.href}
                             className={cn(
-                                'flex flex-col items-center justify-center gap-1 rounded-md p-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-full',
+                                'flex flex-col items-center justify-center gap-1 rounded-md p-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-full h-full',
                             )}
                             >
                             <link.icon className="h-6 w-6" />

@@ -1,4 +1,7 @@
 
+'use client';
+
+import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,8 +11,9 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Briefcase, Edit, GraduationCap, Mail, MapPin, Plus, Rss, Share2, MoreHorizontal, Heart, MessageSquare, Send, Bookmark } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { EditProfileModal } from '@/app/components/edit-profile-modal';
 
-function ProfileHeaderCard() {
+function ProfileHeaderCard({ onEditClick }: { onEditClick: () => void }) {
     const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
     const heroImage = PlaceHolderImages.find(p => p.id === 'hero-image');
 
@@ -18,7 +22,7 @@ function ProfileHeaderCard() {
             <div className="relative h-24 md:h-48 w-full">
                 {heroImage && <Image src={heroImage.imageUrl} alt="Profile background" fill className="object-cover" data-ai-hint={heroImage.imageHint} />}
                 <div className="absolute top-4 right-4">
-                    <Button variant="outline" size="icon" className="bg-background/80 hover:bg-background h-8 w-8">
+                    <Button variant="outline" size="icon" className="bg-background/80 hover:bg-background h-8 w-8" onClick={onEditClick}>
                         <Edit className="h-4 w-4"/>
                     </Button>
                 </div>
@@ -41,7 +45,7 @@ function ProfileHeaderCard() {
                         </div>
                     </div>
                     <div className="flex-shrink-0 pt-4 md:pt-0">
-                         <Button variant="secondary" className="w-full md:w-auto"><Edit className="mr-2 h-4 w-4" /> Edit Profile</Button>
+                         <Button variant="secondary" className="w-full md:w-auto" onClick={onEditClick}><Edit className="mr-2 h-4 w-4" /> Edit Profile</Button>
                     </div>
                 </div>
             </CardHeader>
@@ -103,11 +107,14 @@ function UserActivity() {
 }
 
 export default function ProfilePage() {
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   return (
+    <>
+    <EditProfileModal isOpen={isEditModalOpen} onOpenChange={setIsEditModalOpen} />
     <div className="grid lg:grid-cols-3 gap-8 items-start">
         <main className="lg:col-span-2 space-y-6">
-            <ProfileHeaderCard />
+            <ProfileHeaderCard onEditClick={() => setIsEditModalOpen(true)} />
             <UserActivity />
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -186,7 +193,6 @@ export default function ProfilePage() {
             </Card>
         </aside>
     </div>
+    </>
   );
 }
-
-    

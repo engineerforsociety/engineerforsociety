@@ -1,3 +1,4 @@
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -125,7 +126,7 @@ export default function ProfilePage() {
                         <CardTitle>Experience</CardTitle>
                         <Button variant="ghost" size="icon"><Plus className="h-4 w-4" /></Button>
                     </div>
-                </DardHeader>
+                </CardHeader>
                 <CardContent>
                     <div className="flex gap-4">
                         <Briefcase className="h-8 w-8 text-primary mt-1"/>
@@ -187,3 +188,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    

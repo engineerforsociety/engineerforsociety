@@ -469,10 +469,28 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
         </div>
       </CardHeader>
       <CardContent>
-        <h3 className="text-lg font-bold mb-2">{post.title}</h3>
-        <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
-          {post.content}
-        </p>
+        {(() => {
+          const isTitleDerived = post.title.endsWith('...')
+            ? post.content.startsWith(post.title.slice(0, -3))
+            : post.title === post.content;
+
+          if (isTitleDerived) {
+            return (
+              <p className="text-foreground text-sm sm:text-base mb-4 whitespace-pre-wrap line-clamp-[10]">
+                {post.content}
+              </p>
+            );
+          }
+
+          return (
+            <>
+              <h3 className="text-lg font-bold mb-2">{post.title}</h3>
+              <p className="text-muted-foreground text-sm mb-4 line-clamp-3 whitespace-pre-wrap">
+                {post.content}
+              </p>
+            </>
+          );
+        })()}
         {post.tags && post.tags.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             {post.tags.map((tag) => (
@@ -485,9 +503,9 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
       </CardContent>
       <CardFooter className="flex justify-between items-center text-muted-foreground border-t pt-2">
         <div className='flex gap-1'>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className={`flex items-center gap-2 ${isLiked ? 'text-red-500' : ''}`}
             onClick={handleLike}
             disabled={isProcessing}
@@ -499,18 +517,18 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
           </Button>
         </div>
         <div className='flex gap-1'>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="flex items-center gap-2"
             onClick={handleShare}
             disabled={isProcessing}
           >
             <Send className="h-5 w-5" /> Share
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className={`flex items-center gap-2 ${isSaved ? 'text-primary' : ''}`}
             onClick={handleSave}
             disabled={isProcessing}
@@ -519,16 +537,18 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
           </Button>
         </div>
       </CardFooter>
-      {currentUserId && (
-        <SharePostModal
-          isOpen={isShareModalOpen}
-          onOpenChange={setIsShareModalOpen}
-          postId={post.id}
-          currentUserId={currentUserId}
-          onRepost={handleRepost}
-        />
-      )}
-    </Card>
+      {
+        currentUserId && (
+          <SharePostModal
+            isOpen={isShareModalOpen}
+            onOpenChange={setIsShareModalOpen}
+            postId={post.id}
+            currentUserId={currentUserId}
+            onRepost={handleRepost}
+          />
+        )
+      }
+    </Card >
   );
 }
 
@@ -586,7 +606,7 @@ export default function Home() {
           .limit(10);
 
         if (error) throw error;
-        
+
         // Remove duplicates based on post id - more robust
         if (data && isMounted) {
           const seenIds = new Set<string>();
@@ -733,7 +753,7 @@ export default function Home() {
                       seenIds.add(post.id);
                       return true;
                     });
-                    
+
                     return uniquePosts.map((post) => (
                       <PostCard key={post.id} post={post} currentUserId={user?.id} formatDate={formatDate} />
                     ));

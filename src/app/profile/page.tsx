@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import {
     Briefcase,
+    MessageSquare,
     Edit,
     GraduationCap,
     MapPin,
@@ -24,7 +26,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 
 // New Modals
@@ -71,7 +72,50 @@ type Education = {
     end_date: string;
 }
 
-function ProfileHeaderCard({ onEditClick, user, profile }: { onEditClick: () => void, user: User | null, profile: UserProfile | null }) {
+function ProfileSidebar() {
+    return (
+        <aside className="space-y-6">
+            <Card className="shadow-sm border-none text-left">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-bold flex items-center justify-between">
+                        Analytics <Eye className="h-4 w-4 text-muted-foreground" />
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-4">
+                    <div>
+                        <p className="text-xl font-bold">0</p>
+                        <p className="text-xs text-muted-foreground">Profile views</p>
+                    </div>
+                    <Separator />
+                    <div>
+                        <p className="text-xl font-bold">0</p>
+                        <p className="text-xs text-muted-foreground">Post impressions</p>
+                    </div>
+                </CardContent>
+            </Card>
+        </aside>
+    );
+}
+
+function ProfileHeaderCard({
+    onEditClick,
+    user,
+    profile,
+    isOwnProfile,
+    connectionStatus,
+    onConnect,
+    onAccept,
+    isProcessing
+}: {
+    onEditClick: () => void,
+    user: User | null,
+    profile: UserProfile | null,
+    isOwnProfile: boolean,
+    connectionStatus: 'pending_sent' | 'pending_received' | 'accepted' | 'none',
+    onConnect: () => void,
+    onAccept: () => void,
+    isProcessing: boolean
+}) {
     const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
     const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'User';
     const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || profilePic?.imageUrl;
@@ -110,10 +154,40 @@ function ProfileHeaderCard({ onEditClick, user, profile }: { onEditClick: () => 
                         </div>
                     </div>
                     <div className="flex gap-2 w-full md:w-auto mb-2">
-                        <Button variant="default" className="flex-1 md:flex-none">Open to</Button>
-                        <Button variant="outline" size="icon" onClick={onEditClick}>
-                            <Edit className="h-4 w-4" />
-                        </Button>
+                        {isOwnProfile ? (
+                            <>
+                                <Button variant="default" className="flex-1 md:flex-none">Open to</Button>
+                                <Button variant="outline" size="icon" onClick={onEditClick}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                {connectionStatus === 'none' && (
+                                    <Button variant="default" className="flex-1 md:flex-none" onClick={onConnect} disabled={isProcessing}>
+                                        <Plus className="mr-1.5 h-4 w-4" /> Connect
+                                    </Button>
+                                )}
+                                {connectionStatus === 'pending_sent' && (
+                                    <Button variant="outline" className="flex-1 md:flex-none" disabled>
+                                        Pending
+                                    </Button>
+                                )}
+                                {connectionStatus === 'pending_received' && (
+                                    <Button variant="default" className="flex-1 md:flex-none" onClick={onAccept} disabled={isProcessing}>
+                                        Accept Request
+                                    </Button>
+                                )}
+                                {connectionStatus === 'accepted' && (
+                                    <Button variant="default" className="flex-1 md:flex-none" asChild>
+                                        <Link href={`/messages?userId=${profile?.id}`}>
+                                            <MessageSquare className="mr-1.5 h-4 w-4" /> Message
+                                        </Link>
+                                    </Button>
+                                )}
+                                <Button variant="outline" className="flex-1 md:flex-none">More</Button>
+                            </>
+                        )}
                     </div>
                 </div>
             </CardContent>
@@ -121,32 +195,11 @@ function ProfileHeaderCard({ onEditClick, user, profile }: { onEditClick: () => 
     );
 }
 
-function ProfileSidebar() {
-    return (
-        <aside className="space-y-6">
-            <Card className="shadow-sm border-none">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-bold flex items-center justify-between">
-                        Analytics <Eye className="h-4 w-4 text-muted-foreground" />
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-4 text-left">
-                    <div>
-                        <p className="text-xl font-bold">0</p>
-                        <p className="text-xs text-muted-foreground">Profile views</p>
-                    </div>
-                    <Separator />
-                    <div>
-                        <p className="text-xl font-bold">0</p>
-                        <p className="text-xs text-muted-foreground">Post impressions</p>
-                    </div>
-                </CardContent>
-            </Card>
-        </aside>
-    );
-}
 
-export default function ProfilePage() {
+function ProfileContent() {
+    const searchParams = useSearchParams();
+    const targetUserId = searchParams.get('userId');
+
     const [modals, setModals] = useState({
         intro: false,
         about: false,
@@ -155,39 +208,106 @@ export default function ProfilePage() {
         skills: false
     });
 
-    const [user, setUser] = useState<User | null>(null);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [experiences, setExperiences] = useState<Experience[]>([]);
     const [educations, setEducations] = useState<Education[]>([]);
+    const [connectionStatus, setConnectionStatus] = useState<'pending_sent' | 'pending_received' | 'accepted' | 'none'>('none');
     const [loading, setLoading] = useState(true);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const supabase = createClient();
     const router = useRouter();
 
     const fetchAllData = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+
+        // If no targetUserId and no authUser, redirect to login
+        if (!targetUserId && !authUser) {
             router.push('/login');
             return;
         }
-        setUser(user);
 
-        // Parallel fetching
-        const [prof, exp, edu] = await Promise.all([
-            supabase.from('profiles').select('*').eq('id', user.id).single(),
-            supabase.from('experiences').select('*').eq('profile_id', user.id).order('start_date', { ascending: false }),
-            supabase.from('educations').select('*').eq('profile_id', user.id).order('start_date', { ascending: false })
+        setCurrentUser(authUser);
+
+        // Use targetUserId if provided, otherwise fallback to current logged in user
+        const profileId = targetUserId || authUser?.id;
+
+        if (!profileId) {
+            setLoading(false);
+            return;
+        }
+
+        // Parallel fetching for the specific profileId
+        const [prof, exp, edu, conn] = await Promise.all([
+            supabase.from('profiles').select('*').eq('id', profileId).single(),
+            supabase.from('experiences').select('*').eq('profile_id', profileId).order('start_date', { ascending: false }),
+            supabase.from('educations').select('*').eq('profile_id', profileId).order('start_date', { ascending: false }),
+            targetUserId ? supabase.from('connections').select('*').or(`and(requester_id.eq.${authUser?.id},receiver_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},receiver_id.eq.${authUser?.id})`).maybeSingle() : Promise.resolve({ data: null })
         ]);
 
         setProfile(prof.data);
         setExperiences(exp.data || []);
         setEducations(edu.data || []);
+
+        // Logic for connection status
+        if (conn.data) {
+            if (conn.data.status === 'accepted') {
+                setConnectionStatus('accepted');
+            } else if (conn.data.status === 'pending') {
+                if (conn.data.requester_id === authUser?.id) {
+                    setConnectionStatus('pending_sent');
+                } else {
+                    setConnectionStatus('pending_received');
+                }
+            }
+        } else {
+            setConnectionStatus('none');
+        }
+
         setLoading(false);
+    };
+
+    const handleConnect = async () => {
+        if (!currentUser || !profile || targetUserId === currentUser.id) return;
+        setIsProcessing(true);
+        try {
+            const { error } = await supabase.from('connections').insert({
+                requester_id: currentUser.id,
+                receiver_id: profile.id,
+                status: 'pending'
+            });
+            if (error) throw error;
+            setConnectionStatus('pending_sent');
+        } catch (error) {
+            console.error('Error connecting:', error);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleAccept = async () => {
+        if (!currentUser || !profile) return;
+        setIsProcessing(true);
+        try {
+            const { error } = await supabase
+                .from('connections')
+                .update({ status: 'accepted' })
+                .eq('requester_id', profile.id)
+                .eq('receiver_id', currentUser.id);
+
+            if (error) throw error;
+            setConnectionStatus('accepted');
+        } catch (error) {
+            console.error('Error accepting connection:', error);
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     useEffect(() => {
         fetchAllData();
-    }, []);
+    }, [targetUserId]);
 
     if (loading) {
         return (
@@ -197,6 +317,8 @@ export default function ProfilePage() {
         );
     }
 
+    const isOwnProfile = currentUser?.id === profile?.id;
+
     const toggleModal = (modal: keyof typeof modals, state: boolean) => {
         setModals(prev => ({ ...prev, [modal]: state }));
     };
@@ -204,26 +326,41 @@ export default function ProfilePage() {
     return (
         <div className="bg-muted/30 min-h-screen py-6 md:py-10 px-4">
             <div className="max-w-6xl mx-auto">
-                {/* Modals */}
-                <EditIntroModal isOpen={modals.intro} onOpenChange={(s) => toggleModal('intro', s)} profile={profile} />
-                <EditAboutModal isOpen={modals.about} onOpenChange={(s) => toggleModal('about', s)} currentBio={profile?.bio || ''} />
-                <AddExperienceModal isOpen={modals.experience} onOpenChange={(s) => toggleModal('experience', s)} />
-                <AddEducationModal isOpen={modals.education} onOpenChange={(s) => toggleModal('education', s)} />
-                <EditSkillsModal isOpen={modals.skills} onOpenChange={(s) => toggleModal('skills', s)} currentSkills={profile?.skills || []} />
+                {/* Modals - only render/functional for own profile */}
+                {isOwnProfile && (
+                    <>
+                        <EditIntroModal isOpen={modals.intro} onOpenChange={(s) => toggleModal('intro', s)} profile={profile} />
+                        <EditAboutModal isOpen={modals.about} onOpenChange={(s) => toggleModal('about', s)} currentBio={profile?.bio || ''} />
+                        <AddExperienceModal isOpen={modals.experience} onOpenChange={(s) => toggleModal('experience', s)} />
+                        <AddEducationModal isOpen={modals.education} onOpenChange={(s) => toggleModal('education', s)} />
+                        <EditSkillsModal isOpen={modals.skills} onOpenChange={(s) => toggleModal('skills', s)} currentSkills={profile?.skills || []} />
+                    </>
+                )}
 
                 <div className="grid lg:grid-cols-4 gap-8 items-start">
                     <div className="lg:col-span-3 space-y-6">
-                        <ProfileHeaderCard onEditClick={() => toggleModal('intro', true)} user={user} profile={profile} />
+                        <ProfileHeaderCard
+                            onEditClick={() => toggleModal('intro', true)}
+                            user={isOwnProfile ? currentUser : null}
+                            profile={profile}
+                            isOwnProfile={isOwnProfile}
+                            connectionStatus={connectionStatus}
+                            onConnect={handleConnect}
+                            onAccept={handleAccept}
+                            isProcessing={isProcessing}
+                        />
 
                         {/* About Section */}
                         <Card className="shadow-sm border-none">
                             <CardHeader className="flex flex-row items-center justify-between pb-2">
                                 <CardTitle className="text-xl font-bold">About</CardTitle>
-                                <Button variant="ghost" size="icon" onClick={() => toggleModal('about', true)}><Edit className="h-4 w-4" /></Button>
+                                {isOwnProfile && (
+                                    <Button variant="ghost" size="icon" onClick={() => toggleModal('about', true)}><Edit className="h-4 w-4" /></Button>
+                                )}
                             </CardHeader>
                             <CardContent className="text-left">
                                 <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                                    {profile?.bio || 'Add a bio to tell the community about yourself.'}
+                                    {profile?.bio || (isOwnProfile ? 'Add a bio to tell the community about yourself.' : 'No bio available.')}
                                 </p>
                             </CardContent>
                         </Card>
@@ -232,7 +369,9 @@ export default function ProfilePage() {
                         <Card className="shadow-sm border-none">
                             <CardHeader className="flex flex-row items-center justify-between pb-2">
                                 <CardTitle className="text-xl font-bold">Experience</CardTitle>
-                                <Button variant="ghost" size="icon" onClick={() => toggleModal('experience', true)}><Plus className="h-4 w-4" /></Button>
+                                {isOwnProfile && (
+                                    <Button variant="ghost" size="icon" onClick={() => toggleModal('experience', true)}><Plus className="h-4 w-4" /></Button>
+                                )}
                             </CardHeader>
                             <CardContent className="space-y-6 text-left">
                                 {experiences.length > 0 ? experiences.map((exp) => (
@@ -255,7 +394,9 @@ export default function ProfilePage() {
                         <Card className="shadow-sm border-none">
                             <CardHeader className="flex flex-row items-center justify-between pb-2">
                                 <CardTitle className="text-xl font-bold">Education</CardTitle>
-                                <Button variant="ghost" size="icon" onClick={() => toggleModal('education', true)}><Plus className="h-4 w-4" /></Button>
+                                {isOwnProfile && (
+                                    <Button variant="ghost" size="icon" onClick={() => toggleModal('education', true)}><Plus className="h-4 w-4" /></Button>
+                                )}
                             </CardHeader>
                             <CardContent className="space-y-6 text-left">
                                 {educations.length > 0 ? educations.map((edu) => (
@@ -294,15 +435,21 @@ export default function ProfilePage() {
                                 </div>
                             </CardContent>
                             <CardFooter className="justify-center border-t border-primary/10 mt-6 pt-6 pb-0">
-                                <Button variant="link" className="text-primary font-bold" onClick={() => toggleModal('skills', true)}>
-                                    Manage Skills <ChevronRight className="ml-1 h-4 w-4" />
-                                </Button>
+                                {isOwnProfile ? (
+                                    <Button variant="link" className="text-primary font-bold" onClick={() => toggleModal('skills', true)}>
+                                        Manage Skills <ChevronRight className="ml-1 h-4 w-4" />
+                                    </Button>
+                                ) : (
+                                    <Button variant="link" className="text-primary font-bold">
+                                        Endorse Skills <Plus className="ml-1 h-4 w-4" />
+                                    </Button>
+                                )}
                             </CardFooter>
                         </Card>
 
                         {/* Activity Section - LinkedIn Style */}
                         {profile && (
-                            <ActivitySection userId={profile.id} isOwnProfile={user?.id === profile.id} />
+                            <ActivitySection userId={profile.id} isOwnProfile={isOwnProfile} />
                         )}
                     </div>
 
@@ -312,5 +459,17 @@ export default function ProfilePage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ProfilePage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-vh-60 h-[60vh]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        }>
+            <ProfileContent />
+        </Suspense>
     );
 }

@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { UserNav } from './user-nav';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useNotifications } from '@/hooks/use-notifications';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { sampleUserProfile } from '@/lib/data';
@@ -44,7 +45,7 @@ const topLinks = [
     { href: '/forums', label: 'My Network', icon: Network },
     { href: '/jobs', label: 'Jobs', icon: Briefcase },
     { href: '/messages', label: 'Messaging', icon: MessageSquare },
-    { href: '/notifications', label: 'Notifications', icon: Bell },
+    { href: '/notifications', label: 'Notifications', icon: Bell, count: 0 },
 ];
 
 const secondaryLinks = [
@@ -57,7 +58,7 @@ const secondaryLinks = [
 const allLinks = [...topLinks, ...secondaryLinks];
 
 
-function DesktopNav({ user }: { user: SupabaseUser | null }) {
+function DesktopNav({ user, unreadCount }: { user: SupabaseUser | null, unreadCount: number }) {
     const pathname = usePathname();
     const isAuthenticated = !!user;
 
@@ -86,16 +87,25 @@ function DesktopNav({ user }: { user: SupabaseUser | null }) {
                             <div className="flex items-center space-x-1">
                                 {allLinks.map((link) => {
                                     const isActive = pathname === link.href;
+                                    const count = link.label === 'Notifications' ? unreadCount : 0;
+
                                     return (
                                         <Link
                                             key={link.href}
                                             href={link.href}
                                             className={cn(
-                                                'flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-24',
+                                                'flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-24 relative',
                                                 isActive && 'text-primary bg-accent/50'
                                             )}
                                         >
-                                            <link.icon className="h-6 w-6" />
+                                            <div className="relative">
+                                                <link.icon className="h-6 w-6" />
+                                                {count > 0 && (
+                                                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                                                        {count > 9 ? '9+' : count}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <span className="truncate">{link.label}</span>
                                         </Link>
                                     )
@@ -128,7 +138,7 @@ function DesktopNav({ user }: { user: SupabaseUser | null }) {
     )
 }
 
-function MobileNav({ user }: { user: SupabaseUser | null }) {
+function MobileNav({ user, unreadCount }: { user: SupabaseUser | null, unreadCount: number }) {
     const supabase = createClient(); // This will be removed if user state is managed by Header
     const router = useRouter();
     const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
@@ -194,10 +204,19 @@ function MobileNav({ user }: { user: SupabaseUser | null }) {
                                         <h3 className="px-2 text-sm font-semibold text-muted-foreground">Navigation</h3>
                                         {topLinks.map(link => {
                                             const isActive = pathname === link.href;
+                                            const count = link.label === 'Notifications' ? unreadCount : 0;
+
                                             return (
                                                 <SheetClose asChild key={link.href}>
                                                     <Link href={link.href} className={cn("flex items-center gap-3 p-2 rounded-md hover:bg-accent", isActive && 'bg-accent')}>
-                                                        <link.icon className={cn("h-5 w-5 text-muted-foreground", isActive && 'text-primary')} />
+                                                        <div className="relative">
+                                                            <link.icon className={cn("h-5 w-5 text-muted-foreground", isActive && 'text-primary')} />
+                                                            {count > 0 && (
+                                                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                                                                    {count > 9 ? '9+' : count}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <span className={cn("font-medium", isActive && "text-primary")}>{link.label}</span>
                                                     </Link>
                                                 </SheetClose>
@@ -281,6 +300,7 @@ export function Header() {
     const isMobile = useIsMobile();
     const [user, setUser] = useState<SupabaseUser | null>(null);
     const supabase = createClient();
+    const { unreadCount } = useNotifications();
 
     useEffect(() => {
         const getUser = async () => {
@@ -300,5 +320,5 @@ export function Header() {
         return <div className="h-16 w-full hidden md:block" />;
     }
 
-    return isMobile ? <MobileNav user={user} /> : <DesktopNav user={user} />;
+    return isMobile ? <MobileNav user={user} unreadCount={unreadCount} /> : <DesktopNav user={user} unreadCount={unreadCount} />;
 }

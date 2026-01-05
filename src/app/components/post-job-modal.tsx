@@ -109,7 +109,7 @@ export function PostJobModal({ isOpen, onOpenChange }: PostJobModalProps) {
                     
                     <div className="space-y-2">
                         <Label htmlFor="job-description">Job Description *</Label>
-                        <Input id="job-description" placeholder="Describe the role, responsibilities, and qualifications..." value={formData.job_description} onChange={(e) => setFormData({ ...formData, job_description: e.target.value })} />
+                        <Textarea id="job-description" rows={5} placeholder="Describe the role, responsibilities, and qualifications..." value={formData.job_description} onChange={(e) => setFormData({ ...formData, job_description: e.target.value })} />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

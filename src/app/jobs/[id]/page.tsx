@@ -300,7 +300,7 @@ export default function JobDetailsPage({ params }: { params: { id: string } }) {
 
             <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none">
                 <h3 className="font-semibold text-foreground">Job Description</h3>
-                <p>{job.job_description}</p>
+                <p className="whitespace-pre-wrap">{job.job_description}</p>
             </div>
             
             {(job.salary_min || job.salary_max) && (

@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createClient } from '@/lib/supabase/client';
@@ -141,7 +142,7 @@ export function EditJobModal({ isOpen, onOpenChange, job }: EditJobModalProps) {
                     
                     <div className="space-y-2">
                         <Label htmlFor="job-description">Job Description *</Label>
-                        <Input id="job-description" placeholder="Describe the role, responsibilities, and qualifications..." value={formData.job_description} onChange={(e) => setFormData({ ...formData, job_description: e.target.value })} />
+                        <Textarea id="job-description" rows={5} placeholder="Describe the role, responsibilities, and qualifications..." value={formData.job_description} onChange={(e) => setFormData({ ...formData, job_description: e.target.value })} />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

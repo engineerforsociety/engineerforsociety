@@ -51,6 +51,7 @@ type JobApplication = {
 }
 
 export default function JobDetailsPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const [job, setJob] = useState<JobPosting | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [hasApplied, setHasApplied] = useState(false);
@@ -81,7 +82,7 @@ export default function JobDetailsPage({ params }: { params: { id: string } }) {
               avatar_url
             )
           `)
-          .eq('id', params.id)
+          .eq('id', id)
           .single();
 
         if (jobError || !jobData) {
@@ -93,7 +94,7 @@ export default function JobDetailsPage({ params }: { params: { id: string } }) {
             const { data: applicationData, error: applicationError } = await supabase
                 .from('job_applications')
                 .select('job_id')
-                .eq('job_id', params.id)
+                .eq('job_id', id)
                 .eq('applicant_id', userData.user.id)
                 .maybeSingle();
             
@@ -111,7 +112,7 @@ export default function JobDetailsPage({ params }: { params: { id: string } }) {
     };
 
     fetchJobAndUser();
-  }, [params.id, supabase]);
+  }, [id, supabase]);
 
   const handleApply = async () => {
     if (!user) {

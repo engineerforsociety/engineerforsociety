@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -107,7 +107,7 @@ export default async function UserPostsPage({ params }: { params: { userId: stri
                                     {post.tags && post.tags.map(tag => (
                                         <Badge key={tag} variant="secondary">{tag}</Badge>
                                     ))}
-                                </div>
+                                 </div>
                             </CardContent>
                             <CardFooter className="flex justify-between text-sm text-muted-foreground">
                                 <span>{post.like_count || 0} Likes</span>

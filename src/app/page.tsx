@@ -20,6 +20,7 @@ import {
   UserMinus,
   Podcast,
   BookOpen,
+  FilePen,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -756,6 +757,7 @@ export default function Home() {
                   </div>
                 </CardHeader>
                 <CardFooter className="flex justify-around">
+                  <Button onClick={() => setIsPostModalOpen(true)} variant="ghost" size="sm" className="text-muted-foreground font-semibold"><FilePen className="text-blue-500" /> Forum Post</Button>
                   <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><BookCopy className="text-sky-500" /> Write article</Button>
                   <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Calendar className="text-amber-500" /> Create event</Button>
                   <Button onClick={() => setIsJobModalOpen(true)} variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Newspaper className="text-rose-500" /> Post a job</Button>

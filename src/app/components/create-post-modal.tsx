@@ -58,7 +58,14 @@ export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) 
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || profilePic?.imageUrl;
 
   const handlePost = async () => {
-    if (!postContent.trim()) return;
+    if (!postContent.trim()) {
+      toast({
+        title: "Content required",
+        description: "Please write something before posting.",
+        variant: "destructive"
+      });
+      return;
+    }
     setIsPosting(true);
 
     try {
@@ -73,33 +80,33 @@ export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) 
         return;
       }
 
-      // Default category fallback (assuming 'general' exists or fetch first one)
-      // For now we will just insert without category if constraint allows, or we need to query categories first.
-      // Based on schema `category_id` is NOT NULL. We need a category. 
-      // Ideally we fetch categories, but for MVP let's assume one exists or prompt user.
-      // Let's create a 'General' category via SQL if not exists, but here we'll try to fetch one.
-
       // Quick fix: Fetch the first category available
-      const { data: categories } = await supabase.from('forum_categories').select('id').limit(1);
+      const { data: categories, error: categoryError } = await supabase.from('forum_categories').select('id').limit(1);
+
+      if (categoryError) throw new Error(`Could not fetch categories: ${categoryError.message}`);
+      
       const categoryId = categories?.[0]?.id;
 
       if (!categoryId) {
         toast({
           title: "Error",
-          description: "No forum categories found. Please contact admin.",
+          description: "No forum categories found. An administrator needs to create one.",
           variant: "destructive"
         });
         setIsPosting(false);
         return;
       }
 
+      const title = postContent.substring(0, 50) + (postContent.length > 50 ? '...' : '');
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + `-${Date.now()}`;
+
       const { error } = await supabase.from('forum_posts').insert({
         content: postContent,
-        title: postContent.substring(0, 50) + (postContent.length > 50 ? '...' : ''), // Derive title from content for now
+        title: title, 
         category_id: categoryId,
         author_id: user.id,
-        slug: `post-${Date.now()}`, // Simple slug generation
-        tags: [], // Empty tags for now
+        slug: slug,
+        tags: [],
       });
 
       if (error) throw error;

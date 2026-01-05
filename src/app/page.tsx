@@ -559,6 +559,7 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
 }
 
 const subNavLinks = [
+    { href: '/forums', label: 'Forums', icon: Users },
     { href: '/podcasts', label: 'Podcasts', icon: Podcast },
     { href: '/resources', label: 'Resources', icon: BookOpen },
     { href: '/chapters', label: 'Chapters', icon: Users },

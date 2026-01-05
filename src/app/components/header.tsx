@@ -43,7 +43,7 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 const topLinks = [
     { href: '/', label: 'Home', icon: Home },
-    { href: '/forums', label: 'My Network', icon: Network },
+    { href: '/forums', label: 'Forums', icon: MessageSquare },
     { href: '/jobs', label: 'Jobs', icon: Briefcase },
     { href: '/messages', label: 'Messaging', icon: MessageSquare, countKey: 'messages' },
     { href: '/notifications', label: 'Notifications', icon: Bell, countKey: 'notifications' },
@@ -51,7 +51,7 @@ const topLinks = [
 
 const mainNavLinks = [
     { href: '/', label: 'Home', icon: Home },
-    { href: '/forums', label: 'My Network', icon: Network },
+    { href: '/forums', label: 'Forums', icon: Users },
     { href: '/jobs', label: 'Jobs', icon: Briefcase },
     { href: '/messages', label: 'Messaging', icon: MessageSquare, countKey: 'messages' },
     { href: '/notifications', label: 'Notifications', icon: Bell, countKey: 'notifications' },

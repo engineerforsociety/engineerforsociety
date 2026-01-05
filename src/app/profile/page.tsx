@@ -198,6 +198,7 @@ function ProfileHeaderCard({
 
 function ProfileContent() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const targetUserId = searchParams.get('userId');
 
     const [modals, setModals] = useState({
@@ -217,56 +218,71 @@ function ProfileContent() {
     const [isProcessing, setIsProcessing] = useState(false);
 
     const supabase = createClient();
-    const router = useRouter();
 
-    const fetchAllData = async () => {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
+    useEffect(() => {
+        const fetchAllData = async () => {
+            setLoading(true);
 
-        // If no targetUserId and no authUser, redirect to login
-        if (!targetUserId && !authUser) {
-            router.push('/login');
-            return;
-        }
+            const { data: { user: authUser } } = await supabase.auth.getUser();
 
-        setCurrentUser(authUser);
+            if (!targetUserId && !authUser) {
+                router.push('/login');
+                return;
+            }
 
-        // Use targetUserId if provided, otherwise fallback to current logged in user
-        const profileId = targetUserId || authUser?.id;
+            setCurrentUser(authUser);
+            const profileIdToFetch = targetUserId || authUser?.id;
 
-        if (!profileId) {
-            setLoading(false);
-            return;
-        }
+            if (!profileIdToFetch) {
+                setLoading(false);
+                return;
+            }
 
-        // Parallel fetching for the specific profileId
-        const [prof, exp, edu, conn] = await Promise.all([
-            supabase.from('profiles').select('*').eq('id', profileId).single(),
-            supabase.from('experiences').select('*').eq('profile_id', profileId).order('start_date', { ascending: false }),
-            supabase.from('educations').select('*').eq('profile_id', profileId).order('start_date', { ascending: false }),
-            targetUserId ? supabase.from('connections').select('*').or(`and(requester_id.eq.${authUser?.id},receiver_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},receiver_id.eq.${authUser?.id})`).maybeSingle() : Promise.resolve({ data: null })
-        ]);
+            const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', profileIdToFetch)
+                .single();
 
-        setProfile(prof.data);
-        setExperiences(exp.data || []);
-        setEducations(edu.data || []);
+            if (profileError || !profileData) {
+                console.error("Profile fetch error:", profileError);
+                setLoading(false);
+                return;
+            }
+            
+            setProfile(profileData);
 
-        // Logic for connection status
-        if (conn.data) {
-            if (conn.data.status === 'accepted') {
-                setConnectionStatus('accepted');
-            } else if (conn.data.status === 'pending') {
-                if (conn.data.requester_id === authUser?.id) {
-                    setConnectionStatus('pending_sent');
+            const [expRes, eduRes] = await Promise.all([
+                supabase.from('experiences').select('*').eq('profile_id', profileData.id).order('start_date', { ascending: false }),
+                supabase.from('educations').select('*').eq('profile_id', profileData.id).order('start_date', { ascending: false })
+            ]);
+
+            setExperiences(expRes.data || []);
+            setEducations(eduRes.data || []);
+
+            if (targetUserId && authUser && targetUserId !== authUser.id) {
+                const { data: conn } = await supabase
+                    .from('connections')
+                    .select('*')
+                    .or(`and(requester_id.eq.${authUser.id},receiver_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},receiver_id.eq.${authUser.id})`)
+                    .maybeSingle();
+
+                if (conn) {
+                    if (conn.status === 'accepted') {
+                        setConnectionStatus('accepted');
+                    } else if (conn.status === 'pending') {
+                        setConnectionStatus(conn.requester_id === authUser.id ? 'pending_sent' : 'pending_received');
+                    }
                 } else {
-                    setConnectionStatus('pending_received');
+                    setConnectionStatus('none');
                 }
             }
-        } else {
-            setConnectionStatus('none');
-        }
+            
+            setLoading(false);
+        };
 
-        setLoading(false);
-    };
+        fetchAllData();
+    }, [targetUserId, supabase, router]);
 
     const handleConnect = async () => {
         if (!currentUser || !profile || targetUserId === currentUser.id) return;
@@ -305,10 +321,6 @@ function ProfileContent() {
         }
     };
 
-    useEffect(() => {
-        fetchAllData();
-    }, [targetUserId]);
-
     if (loading) {
         return (
             <div className="flex items-center justify-center min-vh-60 h-[60vh]">
@@ -326,7 +338,6 @@ function ProfileContent() {
     return (
         <div className="bg-muted/30 min-h-screen py-6 md:py-10 px-4">
             <div className="max-w-6xl mx-auto">
-                {/* Modals - only render/functional for own profile */}
                 {isOwnProfile && (
                     <>
                         <EditIntroModal isOpen={modals.intro} onOpenChange={(s) => toggleModal('intro', s)} profile={profile} />
@@ -341,7 +352,7 @@ function ProfileContent() {
                     <div className="lg:col-span-3 space-y-6">
                         <ProfileHeaderCard
                             onEditClick={() => toggleModal('intro', true)}
-                            user={isOwnProfile ? currentUser : null}
+                            user={currentUser}
                             profile={profile}
                             isOwnProfile={isOwnProfile}
                             connectionStatus={connectionStatus}
@@ -350,7 +361,6 @@ function ProfileContent() {
                             isProcessing={isProcessing}
                         />
 
-                        {/* About Section */}
                         <Card className="shadow-sm border-none">
                             <CardHeader className="flex flex-row items-center justify-between pb-2">
                                 <CardTitle className="text-xl font-bold">About</CardTitle>
@@ -365,7 +375,6 @@ function ProfileContent() {
                             </CardContent>
                         </Card>
 
-                        {/* Experience Section */}
                         <Card className="shadow-sm border-none">
                             <CardHeader className="flex flex-row items-center justify-between pb-2">
                                 <CardTitle className="text-xl font-bold">Experience</CardTitle>
@@ -390,7 +399,6 @@ function ProfileContent() {
                             </CardContent>
                         </Card>
 
-                        {/* Education Section */}
                         <Card className="shadow-sm border-none">
                             <CardHeader className="flex flex-row items-center justify-between pb-2">
                                 <CardTitle className="text-xl font-bold">Education</CardTitle>
@@ -414,7 +422,6 @@ function ProfileContent() {
                             </CardContent>
                         </Card>
 
-                        {/* Skills Section */}
                         <Card className="shadow-sm border-none text-center p-8 bg-primary/5 border border-primary/10">
                             <CardContent className="space-y-4">
                                 <div className="mx-auto bg-primary/20 h-16 w-16 rounded-full flex items-center justify-center">
@@ -447,7 +454,6 @@ function ProfileContent() {
                             </CardFooter>
                         </Card>
 
-                        {/* Activity Section - LinkedIn Style */}
                         {profile && (
                             <ActivitySection userId={profile.id} isOwnProfile={isOwnProfile} />
                         )}

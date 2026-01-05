@@ -5,9 +5,10 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2, Users, Plus, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
+import { User } from '@supabase/supabase-js';
 
 type Profile = {
     id: string;
@@ -19,27 +20,34 @@ type Profile = {
 }
 
 export default function NetworkPage() {
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [profiles, setProfiles] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
     const supabase = createClient();
 
     useEffect(() => {
-        const fetchProfiles = async () => {
+        const fetchUserAndProfiles = async () => {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .order('full_name');
-            
-            if (error) {
-                console.error("Error fetching profiles:", error);
-            } else {
-                setProfiles(data || []);
+            const { data: { user } } = await supabase.auth.getUser();
+            setCurrentUser(user);
+
+            if (user) {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .not('id', 'eq', user.id) // Exclude current user
+                    .order('full_name');
+                
+                if (error) {
+                    console.error("Error fetching profiles:", error);
+                } else {
+                    setProfiles(data || []);
+                }
             }
             setLoading(false);
         };
 
-        fetchProfiles();
+        fetchUserAndProfiles();
     }, [supabase]);
 
     return (

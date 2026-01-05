@@ -34,81 +34,74 @@ export default function NetworkPage() {
     const supabase = createClient();
 
     const fetchNetworkData = useCallback(async (user: User) => {
-        // Fetch profiles to connect with
-        const { data: profilesData, error: profilesError } = await supabase
-            .from('profiles')
-            .select('*')
-            .not('id', 'eq', user.id);
+        setLoading(true);
+        try {
+            const [profilesRes, invitesRes] = await Promise.all([
+                supabase.from('profiles').select('*').not('id', 'eq', user.id),
+                supabase
+                    .from('connections')
+                    .select(`
+                        id,
+                        status,
+                        requester:profiles!connections_requester_fkey (
+                            id,
+                            username,
+                            full_name,
+                            avatar_url,
+                            job_title,
+                            company
+                        )
+                    `)
+                    .eq('receiver_id', user.id)
+                    .eq('status', 'pending')
+            ]);
+            
+            if (profilesRes.error) throw profilesRes.error;
+            if (invitesRes.error) throw invitesRes.error;
 
-        if (profilesError) {
-            console.error("Error fetching profiles:", profilesError);
-        } else {
-            setProfiles(profilesData || []);
+            setProfiles(profilesRes.data || []);
+            setInvitations(invitesRes.data as any || []);
+
+        } catch (error) {
+            console.error("Error fetching network data:", error);
+        } finally {
+            setLoading(false);
         }
-
-        // Fetch pending invitations
-        const { data: invitesData, error: invitesError } = await supabase
-            .from('connections')
-            .select(`
-                id,
-                status,
-                requester:profiles!connections_requester_fkey (
-                    id,
-                    username,
-                    full_name,
-                    avatar_url,
-                    job_title,
-                    company
-                )
-            `)
-            .eq('receiver_id', user.id)
-            .eq('status', 'pending');
-
-        if (invitesError) {
-            console.error("Error fetching invitations:", invitesError);
-        } else {
-            setInvitations(invitesData as any || []);
-        }
-
-        setLoading(false);
     }, [supabase]);
-
+    
     useEffect(() => {
-        const initialize = async () => {
-            setLoading(true);
+        const getUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 setCurrentUser(user);
                 fetchNetworkData(user);
             } else {
-                setLoading(false);
+                setLoading(false); // No user, stop loading
             }
         };
+        getUser();
+    }, [fetchNetworkData, supabase]);
 
-        initialize();
+    useEffect(() => {
+        if (!currentUser) return;
 
         const channel = supabase
-            .channel('connections-realtime')
+            .channel('connections-realtime-channel')
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
                 table: 'connections',
+                filter: `receiver_id=eq.${currentUser.id}`
             }, (payload) => {
-                if (currentUser) {
-                    // Check if the change affects the current user's invites
-                    const record = payload.new as any;
-                    if (record.receiver_id === currentUser.id || record.requester_id === currentUser.id) {
-                         fetchNetworkData(currentUser);
-                    }
-                }
+                // Refetch invitations on any change
+                fetchNetworkData(currentUser);
             })
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
         };
-
-    }, [supabase, fetchNetworkData, currentUser]);
+    }, [currentUser, supabase, fetchNetworkData]);
 
 
     const handleInviteAction = async (inviteId: string, newStatus: 'accepted' | 'declined') => {
@@ -175,19 +168,21 @@ export default function NetworkPage() {
                                         <div className="flex gap-2">
                                             <Button
                                                 variant="ghost"
-                                                size="sm"
+                                                size="icon"
                                                 onClick={() => handleInviteAction(invite.id, 'declined')}
                                                 disabled={processingInvite === invite.id}
+                                                className="rounded-full h-9 w-9"
                                             >
-                                                {processingInvite === invite.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ignore'}
+                                                {processingInvite === invite.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-5 w-5"/>}
                                             </Button>
                                             <Button
                                                 variant="outline"
-                                                size="sm"
+                                                size="icon"
                                                 onClick={() => handleInviteAction(invite.id, 'accepted')}
                                                 disabled={processingInvite === invite.id}
+                                                className="rounded-full h-9 w-9"
                                             >
-                                                {processingInvite === invite.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Accept'}
+                                                {processingInvite === invite.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-5 w-5"/>}
                                             </Button>
                                         </div>
                                     </div>

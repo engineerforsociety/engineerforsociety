@@ -24,6 +24,7 @@ import {
   Edit,
   Trash2,
   Loader2,
+  Repeat2,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
@@ -65,10 +66,12 @@ import { formatDistanceToNow } from 'date-fns';
 
 type FeedPost = {
   id: string;
+  feed_item_id: string;
   title: string;
   content: string;
   tags: string[];
   created_at: string;
+  feed_created_at: string;
   view_count: number;
   is_pinned: boolean;
   slug: string;
@@ -80,9 +83,13 @@ type FeedPost = {
   like_count: number;
   comment_count: number;
   share_count?: number;
+  repost_count?: number;
   is_liked?: boolean;
   is_saved?: boolean;
   is_following?: boolean;
+  item_type: 'post' | 'repost';
+  reposter_id?: string;
+  reposter_name?: string;
 };
 
 type SuggestedUser = {
@@ -582,7 +589,16 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
   };
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
+      {post.item_type === 'repost' && (
+        <div className="px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground border-b border-border/40 bg-muted/30">
+          <Repeat2 className="h-3 w-3 text-primary/60" />
+          <Link href={`/users/${post.reposter_id}`} className="font-semibold hover:underline text-foreground/80">
+            {post.reposter_name}
+          </Link>
+          <span>reposted this</span>
+        </div>
+      )}
       <CardHeader>
         <div className="flex items-center gap-4">
           <Link href={`/users/${post.author_id}`} onClick={handleAuthorClick}>
@@ -858,7 +874,7 @@ const subNavLinks = [
   { href: '/forums', label: 'Forums', icon: Users },
   { href: '/podcasts', label: 'Podcasts', icon: Podcast },
   { href: '/resources', label: 'Resources', icon: BookOpen },
-  { href: '/chapters', label: 'Chapters', icon: Users },
+  { href: '/events', label: 'Events', icon: Calendar },
 ]
 
 function SubNav() {
@@ -964,24 +980,28 @@ export default function Home() {
       const { data, error } = await supabase
         .from('feed_posts_view')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('feed_created_at', { ascending: false })
+        .limit(20);
 
       if (error) throw error;
 
       if (data) {
-        const seenIds = new Set<string>();
+        // We use feed_item_id for unique identification to allow same post to appear as a repost
+        const seenFeedIds = new Set<string>();
         const uniquePosts = data.filter((post: any) => {
-          if (!post.id || seenIds.has(post.id)) {
+          const feedId = post.feed_item_id || post.id;
+          if (!feedId || seenFeedIds.has(feedId)) {
             return false;
           }
-          seenIds.add(post.id);
+          seenFeedIds.add(feedId);
           return true;
         });
         setPosts(uniquePosts);
       }
-    } catch (error) {
-      console.error('Error fetching posts:', error);
+    } catch (error: any) {
+      console.error('Error fetching posts:', error.message || error);
+      if (error.details) console.error('Error details:', error.details);
+      if (error.hint) console.error('Error hint:', error.hint);
     } finally {
       setLoadingPosts(false);
     }
@@ -1116,17 +1136,18 @@ export default function Home() {
                       <div className="space-y-4 pt-4 bg-muted/20">
                         {(() => {
                           // Final deduplication before rendering
-                          const seenIds = new Set<string>();
+                          const seenFeedIds = new Set<string>();
                           const uniquePosts = posts.filter((post) => {
-                            if (seenIds.has(post.id)) {
+                            const feedId = post.feed_item_id || post.id;
+                            if (seenFeedIds.has(feedId)) {
                               return false;
                             }
-                            seenIds.add(post.id);
+                            seenFeedIds.add(feedId);
                             return true;
                           });
 
                           return uniquePosts.map((post) => (
-                            <div className="px-4" key={post.id}>
+                            <div className="px-4" key={post.feed_item_id || post.id}>
                               <PostCard post={post} currentUserId={user?.id} onRefresh={fetchPosts} />
                             </div>
                           ));

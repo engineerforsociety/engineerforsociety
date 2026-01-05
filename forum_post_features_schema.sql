@@ -145,24 +145,21 @@ CREATE POLICY "Users can delete their own follows" ON public.user_follows
 
 -- Post Reposts (For reposting to own profile)
 CREATE TABLE IF NOT EXISTS public.post_reposts (
-  id uuid NOT NULL DEFAULT extensions.uuid_generate_v4(),
+  id uuid NOT NULL DEFAULT extensions.uuid_generate_v4 (),
   original_post_id uuid NOT NULL,
   reposter_id uuid NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT post_reposts_pkey PRIMARY KEY (id),
+  CONSTRAINT post_reposts_unique UNIQUE (original_post_id, reposter_id),
   CONSTRAINT post_reposts_original_post_id_fkey FOREIGN KEY (original_post_id) 
-    REFERENCES public.forum_posts(id) ON DELETE CASCADE,
+    REFERENCES public.forum_posts (id) ON DELETE CASCADE,
   CONSTRAINT post_reposts_reposter_id_fkey FOREIGN KEY (reposter_id) 
-    REFERENCES public.profiles(id) ON DELETE CASCADE,
-  CONSTRAINT post_reposts_unique UNIQUE (original_post_id, reposter_id)
+    REFERENCES public.profiles (id) ON DELETE CASCADE
 ) TABLESPACE pg_default;
 
-CREATE INDEX IF NOT EXISTS idx_post_reposts_original ON public.post_reposts 
-  USING btree (original_post_id) TABLESPACE pg_default;
-CREATE INDEX IF NOT EXISTS idx_post_reposts_reposter ON public.post_reposts 
-  USING btree (reposter_id) TABLESPACE pg_default;
-CREATE INDEX IF NOT EXISTS idx_post_reposts_created ON public.post_reposts 
-  USING btree (created_at DESC) TABLESPACE pg_default;
+CREATE INDEX IF NOT EXISTS idx_post_reposts_original ON public.post_reposts USING btree (original_post_id) TABLESPACE pg_default;
+CREATE INDEX IF NOT EXISTS idx_post_reposts_reposter ON public.post_reposts USING btree (reposter_id) TABLESPACE pg_default;
+CREATE INDEX IF NOT EXISTS idx_post_reposts_created ON public.post_reposts USING btree (created_at desc) TABLESPACE pg_default;
 
 -- Row Level Security for Reposts
 ALTER TABLE public.post_reposts ENABLE ROW LEVEL SECURITY;
@@ -180,48 +177,78 @@ DROP POLICY IF EXISTS "Users can delete their own reposts" ON public.post_repost
 CREATE POLICY "Users can delete their own reposts" ON public.post_reposts
   FOR DELETE USING (auth.uid() = reposter_id);
 
--- Grant permissions
-GRANT SELECT, INSERT, DELETE ON public.post_reactions TO authenticated;
-GRANT SELECT, INSERT, DELETE ON public.post_saves TO authenticated;
-GRANT SELECT, INSERT ON public.post_shares TO authenticated;
-GRANT SELECT, INSERT, DELETE ON public.user_follows TO authenticated;
-GRANT SELECT, INSERT, DELETE ON public.post_reposts TO authenticated;
-
--- Update feed_posts_view to include user-specific data
--- Drop the view first to avoid column name conflicts
+-- Update feed_posts_view to include original posts and reposts
 DROP VIEW IF EXISTS public.feed_posts_view CASCADE;
 
 CREATE VIEW public.feed_posts_view AS
-SELECT DISTINCT ON (fp.id)
-    fp.id,
-    fp.title,
-    fp.content,
-    fp.tags,
-    fp.created_at,
-    fp.view_count,
-    fp.is_pinned,
-    fp.slug,
-    p.id as author_id,
-    p.full_name as author_name,
-    p.avatar_url as author_avatar,
-    p.job_title as author_title,
-    fc.name as category_name,
-    fc.slug as category_slug,
-    (SELECT COUNT(*) FROM public.forum_comments WHERE post_id = fp.id) as comment_count,
-    (SELECT COUNT(*) FROM public.post_reactions WHERE post_id = fp.id) as like_count,
-    (SELECT COUNT(*) FROM public.post_shares WHERE post_id = fp.id) as share_count,
-    (SELECT COUNT(*) FROM public.post_reposts WHERE original_post_id = fp.id) as repost_count,
-    -- User-specific flags (will be set to false if user is not logged in)
+WITH base_posts AS (
+    -- Original posts
+    SELECT 
+        fp.id,
+        fp.id as feed_item_id,
+        fp.title,
+        fp.content,
+        fp.tags,
+        fp.created_at,
+        fp.created_at as feed_created_at,
+        fp.view_count,
+        fp.is_pinned,
+        fp.slug,
+        p.id as author_id,
+        p.full_name as author_name,
+        p.avatar_url as author_avatar,
+        p.job_title as author_title,
+        fc.name as category_name,
+        fc.slug as category_slug,
+        'post' as item_type,
+        NULL::uuid as reposter_id,
+        NULL::text as reposter_name
+    FROM public.forum_posts fp
+    LEFT JOIN public.profiles p ON fp.author_id = p.id
+    LEFT JOIN public.forum_categories fc ON fp.category_id = fc.id
+
+    UNION ALL
+
+    -- Reposts
+    SELECT 
+        fp.id,
+        pr.id as feed_item_id,
+        fp.title,
+        fp.content,
+        fp.tags,
+        fp.created_at,
+        pr.created_at as feed_created_at,
+        fp.view_count,
+        false as is_pinned,
+        fp.slug,
+        p_author.id as author_id,
+        p_author.full_name as author_name,
+        p_author.avatar_url as author_avatar,
+        p_author.job_title as author_title,
+        fc.name as category_name,
+        fc.slug as category_slug,
+        'repost' as item_type,
+        pr.reposter_id,
+        p_reposter.full_name as reposter_name
+    FROM public.post_reposts pr
+    JOIN public.forum_posts fp ON pr.original_post_id = fp.id
+    LEFT JOIN public.profiles p_author ON fp.author_id = p_author.id
+    LEFT JOIN public.profiles p_reposter ON pr.reposter_id = p_reposter.id
+    LEFT JOIN public.forum_categories fc ON fp.category_id = fc.id
+)
+SELECT 
+    bp.*,
+    (SELECT COUNT(*) FROM public.forum_comments WHERE post_id = bp.id) as comment_count,
+    (SELECT COUNT(*) FROM public.post_reactions WHERE post_id = bp.id) as like_count,
+    (SELECT COUNT(*) FROM public.post_shares WHERE post_id = bp.id) as share_count,
+    (SELECT COUNT(*) FROM public.post_reposts WHERE original_post_id = bp.id) as repost_count,
     COALESCE((SELECT EXISTS(SELECT 1 FROM public.post_reactions pr 
-      WHERE pr.post_id = fp.id AND pr.user_id = auth.uid())), false) as is_liked,
+      WHERE pr.post_id = bp.id AND pr.user_id = auth.uid())), false) as is_liked,
     COALESCE((SELECT EXISTS(SELECT 1 FROM public.post_saves ps 
-      WHERE ps.post_id = fp.id AND ps.user_id = auth.uid())), false) as is_saved,
+      WHERE ps.post_id = bp.id AND ps.user_id = auth.uid())), false) as is_saved,
     COALESCE((SELECT EXISTS(SELECT 1 FROM public.user_follows uf 
-      WHERE uf.following_id = p.id AND uf.follower_id = auth.uid())), false) as is_following
-FROM public.forum_posts fp
-LEFT JOIN public.profiles p ON fp.author_id = p.id
-LEFT JOIN public.forum_categories fc ON fp.category_id = fc.id
-ORDER BY fp.id, fp.is_pinned DESC, fp.created_at DESC;
+      WHERE uf.following_id = bp.author_id AND uf.follower_id = auth.uid())), false) as is_following
+FROM base_posts bp;
 
 -- Grant access to the updated view
 GRANT SELECT ON public.feed_posts_view TO authenticated, anon;

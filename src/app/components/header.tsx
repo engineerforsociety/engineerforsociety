@@ -26,6 +26,7 @@ import {
     LogOut,
     ShieldCheck,
     Bookmark,
+    Calendar,
 } from 'lucide-react';
 import { Logo } from './icons';
 import { cn } from '@/lib/utils';
@@ -64,7 +65,7 @@ const secondaryLinks = [
     { href: '/projects', label: 'Projects', icon: GanttChartSquare },
     { href: '/podcasts', label: 'Podcasts', icon: Podcast },
     { href: '/resources', label: 'Resources', icon: BookOpen },
-    { href: '/chapters', label: 'Chapters', icon: Users },
+    { href: '/events', label: 'Events', icon: Calendar },
 ]
 
 

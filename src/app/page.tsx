@@ -41,7 +41,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { sampleTrendingTopics, sampleUsersToFollow, sampleUserProfile } from '@/lib/data';
+import { sampleTrendingTopics, sampleUserProfile } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
@@ -76,6 +76,13 @@ type FeedPost = {
   is_saved?: boolean;
   is_following?: boolean;
 };
+
+type SuggestedUser = {
+    id: string;
+    full_name: string | null;
+    job_title: string | null;
+    avatar_url: string | null;
+}
 
 function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
   const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
@@ -595,6 +602,55 @@ function SubNav() {
     )
 }
 
+function SuggestedFollows({ currentUser }: { currentUser: User | null }) {
+    const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
+    const supabase = createClient();
+
+    useEffect(() => {
+        const fetchSuggestedUsers = async () => {
+            if (!currentUser) return;
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, job_title, avatar_url')
+                .not('id', 'eq', currentUser.id)
+                .limit(3);
+
+            if (error) {
+                console.error('Error fetching suggested users:', error);
+            } else {
+                setSuggestedUsers(data);
+            }
+        };
+        fetchSuggestedUsers();
+    }, [currentUser, supabase]);
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Add to your feed</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {suggestedUsers.map(user => (
+                    <div key={user.id} className="flex items-center gap-3">
+                        <Avatar>
+                            <AvatarImage src={user.avatar_url || undefined} alt={user.full_name || 'User'} />
+                            <AvatarFallback>{(user.full_name || 'U').substring(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                            <p className="text-sm font-semibold hover:underline cursor-pointer">{user.full_name}</p>
+                            <p className="text-xs text-muted-foreground">{user.job_title || 'Community Member'}</p>
+                        </div>
+                        <Button variant="outline" size="sm" className="rounded-full flex items-center gap-1">
+                            <Plus className="h-4 w-4" /> Follow
+                        </Button>
+                    </div>
+                ))}
+                <Button variant="link" size="sm" className="text-muted-foreground font-bold">View all recommendations</Button>
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function Home() {
   const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
@@ -806,32 +862,7 @@ export default function Home() {
             </main >
 
             <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Add to your feed</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {sampleUsersToFollow.map(user => {
-                    const userImage = PlaceHolderImages.find(p => p.id === user.avatarId);
-                    return (
-                      <div key={user.id} className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={userImage?.imageUrl} alt={user.name} data-ai-hint={userImage?.imageHint} />
-                          <AvatarFallback>{user.name.substring(0, 2)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold hover:underline cursor-pointer">{user.name}</p>
-                          <p className="text-xs text-muted-foreground">{user.title}</p>
-                        </div>
-                        <Button variant="outline" size="sm" className="rounded-full flex items-center gap-1">
-                          <Plus className="h-4 w-4" /> Follow
-                        </Button>
-                      </div>
-                    )
-                  })}
-                  <Button variant="link" size="sm" className="text-muted-foreground font-bold">View all recommendations</Button>
-                </CardContent>
-              </Card>
+              <SuggestedFollows currentUser={user} />
 
               <Card>
                 <CardHeader>

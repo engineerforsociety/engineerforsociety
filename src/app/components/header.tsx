@@ -49,14 +49,21 @@ const topLinks = [
     { href: '/notifications', label: 'Notifications', icon: Bell, countKey: 'notifications' },
 ];
 
+const mainNavLinks = [
+    { href: '/', label: 'Home', icon: Home },
+    { href: '/forums', label: 'My Network', icon: Network },
+    { href: '/jobs', label: 'Jobs', icon: Briefcase },
+    { href: '/messages', label: 'Messaging', icon: MessageSquare, countKey: 'messages' },
+    { href: '/notifications', label: 'Notifications', icon: Bell, countKey: 'notifications' },
+    { href: '/projects', label: 'Projects', icon: GanttChartSquare },
+];
+
 const secondaryLinks = [
     { href: '/projects', label: 'Projects', icon: GanttChartSquare },
     { href: '/podcasts', label: 'Podcasts', icon: Podcast },
     { href: '/resources', label: 'Resources', icon: BookOpen },
     { href: '/chapters', label: 'Chapters', icon: Users },
 ]
-
-const allLinks = [...topLinks, ...secondaryLinks];
 
 
 function DesktopNav({ user, counts }: { user: SupabaseUser | null, counts: { notifications: number, messages: number } }) {
@@ -86,7 +93,7 @@ function DesktopNav({ user, counts }: { user: SupabaseUser | null, counts: { not
                     <>
                         <nav className="flex-1 flex justify-center ml-12">
                             <div className="flex items-center space-x-1">
-                                {allLinks.map((link) => {
+                                {mainNavLinks.map((link) => {
                                     const isActive = pathname === link.href;
                                     const count = link.countKey ? counts[link.countKey as keyof typeof counts] : 0;
 

@@ -33,9 +33,9 @@ export default function JobsPage() {
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
-    employment_type: '',
-    experience_level: '',
-    is_remote: '', // 'true', 'false', or ''
+    employment_type: 'all',
+    experience_level: 'all',
+    is_remote: 'all', // 'true', 'false', or 'all'
   });
   const supabase = createClient();
 
@@ -74,9 +74,9 @@ export default function JobsPage() {
         job.company_name.toLowerCase().includes(searchLower) ||
         (job.location && job.location.toLowerCase().includes(searchLower));
 
-      const matchesEmployment = !filters.employment_type || job.employment_type === filters.employment_type;
-      const matchesExperience = !filters.experience_level || job.experience_level === filters.experience_level;
-      const matchesRemote = !filters.is_remote || job.is_remote.toString() === filters.is_remote;
+      const matchesEmployment = filters.employment_type === 'all' || job.employment_type === filters.employment_type;
+      const matchesExperience = filters.experience_level === 'all' || job.experience_level === filters.experience_level;
+      const matchesRemote = filters.is_remote === 'all' || job.is_remote.toString() === filters.is_remote;
 
       return matchesSearch && matchesEmployment && matchesExperience && matchesRemote;
     });
@@ -91,9 +91,9 @@ export default function JobsPage() {
   const clearFilters = () => {
     setSearchQuery('');
     setFilters({
-      employment_type: '',
-      experience_level: '',
-      is_remote: '',
+      employment_type: 'all',
+      experience_level: 'all',
+      is_remote: 'all',
     });
   };
 
@@ -180,7 +180,7 @@ export default function JobsPage() {
                   <SelectValue placeholder="Employment Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="full_time">Full-time</SelectItem>
                   <SelectItem value="part_time">Part-time</SelectItem>
                   <SelectItem value="contract">Contract</SelectItem>
@@ -193,7 +193,7 @@ export default function JobsPage() {
                   <SelectValue placeholder="Experience Level" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Levels</SelectItem>
+                  <SelectItem value="all">All Levels</SelectItem>
                   <SelectItem value="entry">Entry</SelectItem>
                   <SelectItem value="mid">Mid-level</SelectItem>
                   <SelectItem value="senior">Senior</SelectItem>
@@ -206,7 +206,7 @@ export default function JobsPage() {
                   <SelectValue placeholder="Location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Locations</SelectItem>
+                  <SelectItem value="all">All Locations</SelectItem>
                   <SelectItem value="true">Remote</SelectItem>
                   <SelectItem value="false">On-site</SelectItem>
                 </SelectContent>

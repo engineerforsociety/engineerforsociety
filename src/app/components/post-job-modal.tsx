@@ -44,6 +44,7 @@ export function PostJobModal({ isOpen, onOpenChange }: PostJobModalProps) {
         application_email: '',
         salary_min: '',
         salary_max: '',
+        salary_currency: 'USD',
         required_skills: '',
     });
 
@@ -71,6 +72,7 @@ export function PostJobModal({ isOpen, onOpenChange }: PostJobModalProps) {
                 application_email: formData.application_email || null,
                 salary_min: formData.salary_min ? parseFloat(formData.salary_min) : null,
                 salary_max: formData.salary_max ? parseFloat(formData.salary_max) : null,
+                salary_currency: formData.salary_currency,
                 required_skills: formData.required_skills ? formData.required_skills.split(',').map(s => s.trim()) : [],
             };
 
@@ -106,7 +108,7 @@ export function PostJobModal({ isOpen, onOpenChange }: PostJobModalProps) {
                             <Input id="company-name" placeholder="e.g., Engineer For Society" value={formData.company_name} onChange={(e) => setFormData({ ...formData, company_name: e.target.value })} />
                         </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                         <Label htmlFor="job-description">Job Description *</Label>
                         <Textarea id="job-description" rows={5} placeholder="Describe the role, responsibilities, and qualifications..." value={formData.job_description} onChange={(e) => setFormData({ ...formData, job_description: e.target.value })} />
@@ -154,7 +156,7 @@ export function PostJobModal({ isOpen, onOpenChange }: PostJobModalProps) {
                         <Checkbox id="is_remote" checked={formData.is_remote} onCheckedChange={(checked) => setFormData({ ...formData, is_remote: !!checked })} />
                         <Label htmlFor="is_remote">This is a remote position</Label>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="salary-min">Salary Minimum (USD)</Label>
@@ -174,13 +176,13 @@ export function PostJobModal({ isOpen, onOpenChange }: PostJobModalProps) {
 
                     <div className="space-y-2">
                         <Label>Application Method</Label>
-                        <Input placeholder="Application URL" value={formData.application_url} onChange={(e) => setFormData({ ...formData, application_url: e.target.value, application_email: '' })}/>
+                        <Input placeholder="Application URL" value={formData.application_url} onChange={(e) => setFormData({ ...formData, application_url: e.target.value, application_email: '' })} />
                         <div className="flex items-center gap-2">
                             <div className="flex-grow border-t"></div>
                             <span className="text-xs text-muted-foreground">OR</span>
                             <div className="flex-grow border-t"></div>
                         </div>
-                        <Input type="email" placeholder="Application Email" value={formData.application_email} onChange={(e) => setFormData({ ...formData, application_email: e.target.value, application_url: '' })}/>
+                        <Input type="email" placeholder="Application Email" value={formData.application_email} onChange={(e) => setFormData({ ...formData, application_email: e.target.value, application_url: '' })} />
                     </div>
                 </div>
                 <DialogFooter>

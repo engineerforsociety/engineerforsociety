@@ -96,9 +96,11 @@ export function UserNav({ user }: { user: SupabaseUser | null }) {
                             <GanttChartSquare className="mr-2 h-4 w-4" />
                             <span>Posts & Activity</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                            <ShieldCheck className="mr-2 h-4 w-4" />
-                            <span>Job Posting Account</span>
+                        <DropdownMenuItem asChild>
+                            <Link href="/jobs/manage" className="flex items-center w-full">
+                                <ShieldCheck className="mr-2 h-4 w-4" />
+                                <span>Job Posting Account</span>
+                            </Link>
                         </DropdownMenuItem>
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />

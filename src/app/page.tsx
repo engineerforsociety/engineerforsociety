@@ -178,6 +178,8 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
   const [isProcessing, setIsProcessing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const handleLike = async () => {
     if (!currentUserId) {
       toast({
@@ -487,23 +489,48 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
             ? post.content.startsWith(post.title.slice(0, -3))
             : post.title === post.content;
 
+          const maxLength = 280; // Character limit for "See more"
+          const shouldTruncate = post.content.length > maxLength && !isExpanded;
+          const displayContent = shouldTruncate ? post.content.substring(0, maxLength) + '...' : post.content;
+
           if (isTitleDerived) {
             return (
-              <p className="text-foreground text-sm sm:text-base mb-4 whitespace-pre-wrap line-clamp-[10]">
-                {post.content}
-              </p>
+              <div className="space-y-4">
+                <p className="text-foreground text-sm sm:text-base whitespace-pre-wrap">
+                  {displayContent}
+                </p>
+                {post.content.length > maxLength && (
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="text-primary font-semibold text-sm hover:underline focus:outline-none"
+                  >
+                    {isExpanded ? 'See less' : '...see more'}
+                  </button>
+                )}
+              </div>
             );
           }
 
           return (
             <>
               <h3 className="text-lg font-bold mb-2">{post.title}</h3>
-              <p className="text-muted-foreground text-sm mb-4 line-clamp-3 whitespace-pre-wrap">
-                {post.content}
-              </p>
+              <div className="space-y-4">
+                <p className="text-muted-foreground text-sm whitespace-pre-wrap">
+                  {displayContent}
+                </p>
+                {post.content.length > maxLength && (
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="text-primary font-semibold text-sm hover:underline focus:outline-none"
+                  >
+                    {isExpanded ? 'See less' : '...see more'}
+                  </button>
+                )}
+              </div>
             </>
           );
         })()}
+
         {post.tags && post.tags.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             {post.tags.map((tag) => (

@@ -117,7 +117,7 @@ export default function JobDetailsPage({ params }: { params: { id: string } }) {
             const filePath = `${user.id}/${job.id}-${resumeFile.name}`;
             const { error: uploadError } = await supabase.storage
                 .from('resumes')
-                .upload(filePath, resumeFile);
+                .upload(filePath, resumeFile, { upsert: true });
 
             if (uploadError) throw new Error(`Resume upload failed: ${uploadError.message}`);
             

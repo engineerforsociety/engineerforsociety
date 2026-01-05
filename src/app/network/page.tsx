@@ -34,7 +34,6 @@ export default function NetworkPage() {
     const supabase = createClient();
 
     const fetchNetworkData = useCallback(async (user: User) => {
-        setLoading(true);
         try {
             const [profilesRes, invitesRes] = await Promise.all([
                 supabase.from('profiles').select('*').not('id', 'eq', user.id),
@@ -71,6 +70,7 @@ export default function NetworkPage() {
     
     useEffect(() => {
         const getUser = async () => {
+            setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 setCurrentUser(user);
@@ -93,7 +93,6 @@ export default function NetworkPage() {
                 table: 'connections',
                 filter: `receiver_id=eq.${currentUser.id}`
             }, (payload) => {
-                // Refetch invitations on any change
                 fetchNetworkData(currentUser);
             })
             .subscribe();
@@ -148,7 +147,7 @@ export default function NetworkPage() {
                                 {invitations.map(invite => (
                                     <div key={invite.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
                                         <div className="flex items-center gap-4">
-                                            <Link href={`/profile?userId=${invite.requester.id}`}>
+                                            <Link href={`/users/${invite.requester.id}`}>
                                                 <Avatar className="h-14 w-14">
                                                     <AvatarImage src={invite.requester.avatar_url || ''} alt={invite.requester.full_name || 'User'} />
                                                     <AvatarFallback>
@@ -157,7 +156,7 @@ export default function NetworkPage() {
                                                 </Avatar>
                                             </Link>
                                             <div>
-                                                <Link href={`/profile?userId=${invite.requester.id}`}>
+                                                <Link href={`/users/${invite.requester.id}`}>
                                                     <p className="font-bold hover:underline">{invite.requester.full_name || invite.requester.username}</p>
                                                 </Link>
                                                 <p className="text-sm text-muted-foreground">
@@ -197,7 +196,7 @@ export default function NetworkPage() {
                         {profiles.map(profile => (
                             <Card key={profile.id} className="text-center hover:shadow-lg transition-shadow">
                                 <CardContent className="pt-6 flex flex-col items-center">
-                                    <Link href={`/profile?userId=${profile.id}`}>
+                                    <Link href={`/users/${profile.id}`}>
                                         <Avatar className="h-24 w-24 mb-4 border-2 border-primary/20">
                                             <AvatarImage src={profile.avatar_url || ''} alt={profile.full_name || 'User'} />
                                             <AvatarFallback className="text-2xl">
@@ -205,7 +204,7 @@ export default function NetworkPage() {
                                             </AvatarFallback>
                                         </Avatar>
                                     </Link>
-                                    <Link href={`/profile?userId=${profile.id}`}>
+                                    <Link href={`/users/${profile.id}`}>
                                         <p className="font-bold text-lg hover:underline">{profile.full_name || profile.username}</p>
                                     </Link>
                                     <p className="text-sm text-muted-foreground h-10 mt-1">

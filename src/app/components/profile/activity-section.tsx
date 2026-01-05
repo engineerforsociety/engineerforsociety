@@ -2,19 +2,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { createClient } from '@/lib/supabase/client';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { 
   MessageSquare, 
-  Heart, 
-  Share2, 
-  Repeat2, 
-  Briefcase, 
-  GraduationCap, 
   FileText,
   MoreHorizontal
 } from 'lucide-react';
@@ -50,7 +50,7 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
   const [activities, setActivities] = useState<Activity[]>([]);
   const [profileInfo, setProfileInfo] = useState<ProfileInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'all' | 'posts' | 'comments'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'posts' | 'comments'>('posts');
   const supabase = createClient();
 
   useEffect(() => {
@@ -60,7 +60,6 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
   const fetchProfileAndActivities = async () => {
     setLoading(true);
     try {
-      // Fetch profile info first
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('full_name, avatar_url')
@@ -70,13 +69,12 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
       if (profileError) throw profileError;
       setProfileInfo(profileData);
 
-      // Then fetch activities
       let query = supabase
         .from('user_activity_feed')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(15);
 
       if (activeTab === 'posts') {
         query = query.eq('activity_type', 'post');
@@ -92,28 +90,6 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
       console.error('Error fetching activities:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'post':
-        return <FileText className="h-5 w-5 text-blue-500" />;
-      case 'comment':
-        return <MessageSquare className="h-5 w-5 text-green-500" />;
-      default:
-        return <FileText className="h-5 w-5" />;
-    }
-  };
-
-  const getActivityText = (activity: Activity) => {
-    switch (activity.activity_type) {
-      case 'post':
-        return 'posted';
-      case 'comment':
-        return 'commented on';
-      default:
-        return 'performed an action';
     }
   };
 
@@ -145,43 +121,32 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl font-bold">Activity</CardTitle>
-          {activities.length > 0 && (
-            <Badge variant="secondary" className="text-sm">
-              {activities.length} {activities.length === 1 ? 'activity' : 'activities'}
-            </Badge>
-          )}
+          <p className="text-sm text-muted-foreground">{activities.length} activities</p>
         </div>
         
-        {/* Tabs */}
-        <div className="flex gap-2 mt-4 border-b">
-          <Button
-            variant={activeTab === 'all' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setActiveTab('all')}
-            className={`rounded-none border-b-2 ${activeTab === 'all' ? 'border-primary' : 'border-transparent'} hover:border-primary/50`}
-          >
-            All
-          </Button>
+        <div className="flex gap-2 mt-4">
           <Button
             variant={activeTab === 'posts' ? 'default' : 'ghost'}
-            size="sm"
             onClick={() => setActiveTab('posts')}
-            className={`rounded-none border-b-2 ${activeTab === 'posts' ? 'border-primary' : 'border-transparent'} hover:border-primary/50`}
           >
             Posts
           </Button>
           <Button
             variant={activeTab === 'comments' ? 'default' : 'ghost'}
-            size="sm"
             onClick={() => setActiveTab('comments')}
-            className={`rounded-none border-b-2 ${activeTab === 'comments' ? 'border-primary' : 'border-transparent'} hover:border-primary/50`}
           >
             Comments
+          </Button>
+          <Button
+            variant={activeTab === 'all' ? 'default' : 'ghost'}
+            onClick={() => setActiveTab('all')}
+          >
+            All
           </Button>
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-4">
+      <CardContent>
         {activities.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">No activities yet.</p>
@@ -192,64 +157,70 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
             )}
           </div>
         ) : (
-          activities.map((activity) => (
-            <div key={activity.activity_id} className="space-y-3">
-              <div className="flex gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={profileInfo?.avatar_url || undefined} alt={profileInfo?.full_name || 'User'} />
-                  <AvatarFallback>
-                    {(profileInfo?.full_name || 'U').substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    {getActivityIcon(activity.activity_type)}
-                    <span className="font-semibold">{profileInfo?.full_name || 'User'}</span>
-                    <span className="text-muted-foreground text-sm">
-                      {getActivityText(activity)}
-                    </span>
-                    <span className="text-muted-foreground text-xs">
-                      {formatDate(activity.created_at)}
-                    </span>
+          <Carousel
+            opts={{
+              align: "start",
+              loop: false,
+            }}
+            className="w-full"
+          >
+            <CarouselContent>
+              {activities.map((activity) => (
+                <CarouselItem key={activity.activity_id} className="md:basis-1/2 lg:basis-1/3">
+                  <div className="p-1">
+                    <Card className="h-full">
+                       <CardHeader>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={profileInfo?.avatar_url || undefined} alt={profileInfo?.full_name || 'User'} />
+                              <AvatarFallback>
+                                {(profileInfo?.full_name || 'U').substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                               <p className="font-semibold text-sm">{profileInfo?.full_name}</p>
+                               <p className="text-xs text-muted-foreground">{formatDate(activity.created_at)}</p>
+                            </div>
+                            <Button variant="ghost" size="icon" className="ml-auto"><MoreHorizontal className="h-4 w-4"/></Button>
+                          </div>
+                       </CardHeader>
+                      <CardContent>
+                         {activity.activity_type === 'post' && activity.activity_data.post_title && (
+                             <div className="space-y-2">
+                                <Link href={`/forums/post/${activity.activity_data.post_slug || activity.activity_data.post_id}`}>
+                                    <h4 className="font-semibold text-sm hover:underline">{activity.activity_data.post_title}</h4>
+                                </Link>
+                                <p className="text-sm text-muted-foreground line-clamp-3">
+                                    {activity.activity_data.post_content}
+                                </p>
+                             </div>
+                         )}
+                          {activity.activity_type === 'comment' && activity.activity_data.comment_content && (
+                             <div className="space-y-2">
+                               <p className="text-sm text-muted-foreground italic">commented on: 
+                                    <Link href={`/forums/post/${activity.activity_data.post_slug}`} className="font-semibold text-primary/80 hover:underline ml-1">
+                                        {activity.activity_data.post_title}
+                                    </Link>
+                                </p>
+                               <p className="text-sm line-clamp-3">{activity.activity_data.comment_content}</p>
+                             </div>
+                         )}
+                      </CardContent>
+                    </Card>
                   </div>
-                  
-                  {/* Post Content */}
-                  {activity.activity_data.post_title && (
-                    <div className="bg-muted/50 rounded-lg p-3 mt-2 border-l-4 border-primary">
-                      <Link 
-                        href={`/forums/post/${activity.activity_data.post_slug || activity.activity_data.post_id}`}
-                        className="hover:underline"
-                      >
-                        <h4 className="font-semibold text-sm mb-1">{activity.activity_data.post_title}</h4>
-                      </Link>
-                      {activity.activity_data.post_content && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {activity.activity_data.post_content}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Comment Content */}
-                  {activity.activity_data.comment_content && (
-                     <div className="bg-muted/50 rounded-lg p-3 mt-2 border-l-4 border-green-500">
-                        <p className="text-sm text-muted-foreground italic mb-2">commented on: 
-                            <Link href={`/forums/post/${activity.activity_data.post_slug}`} className="font-semibold text-primary/80 hover:underline ml-1">
-                                {activity.activity_data.post_title}
-                            </Link>
-                        </p>
-                       <p className="text-sm">{activity.activity_data.comment_content}</p>
-                     </div>
-                  )}
-
-                </div>
-              </div>
-              <Separator />
-            </div>
-          ))
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
         )}
       </CardContent>
+      <CardFooter className="justify-center border-t pt-4">
+        <Button variant="link" asChild>
+            <Link href={`/users/${userId}/posts`}>Show all posts →</Link>
+        </Button>
+      </CardFooter>
     </Card>
   );
 }

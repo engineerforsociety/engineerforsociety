@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import {
     DropdownMenu,
@@ -30,9 +31,11 @@ export function UserNav({ user }: { user: SupabaseUser | null }) {
     const displayName = user?.user_metadata?.full_name || user?.email || 'User';
     const avatarUrl = user?.user_metadata?.avatar_url || profilePic?.imageUrl;
 
+    const profileUrl = user ? `/users/${user.id}` : '/login';
+
     return (
         <div className="flex items-center">
-            <Link href="/profile" className={cn(
+            <Link href={profileUrl} className={cn(
                 'flex flex-col items-center justify-center gap-1 rounded-l-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer h-full'
             )}>
                 <Avatar className="h-6 w-6">
@@ -66,7 +69,7 @@ export function UserNav({ user }: { user: SupabaseUser | null }) {
                     </DropdownMenuLabel>
                     <div className="p-2">
                         <Button asChild variant="outline" className="w-full">
-                            <Link href="/profile">View Profile</Link>
+                            <Link href={profileUrl}>View Profile</Link>
                         </Button>
                     </div>
                     <DropdownMenuSeparator />

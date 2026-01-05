@@ -91,6 +91,8 @@ function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || profilePic?.imageUrl;
   const coverUrl = profile?.cover_url || null;
 
+  const profileUrl = user ? `/users/${user.id}` : '/login';
+
   return (
     <Card className="overflow-hidden">
       <div className="relative h-20 w-full bg-muted">
@@ -99,7 +101,7 @@ function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
         ) : (
           <div className="w-full h-full bg-gradient-to-r from-primary/10 to-secondary/10" />
         )}
-        <Link href="/profile">
+        <Link href={profileUrl}>
           <Avatar className="h-20 w-20 mx-auto absolute -bottom-10 left-1/2 -translate-x-1/2 border-4 border-background cursor-pointer hover:opacity-90 transition-opacity">
             <AvatarImage src={avatarUrl} alt={displayName} />
             <AvatarFallback>{displayName.substring(0, 2)}</AvatarFallback>
@@ -107,7 +109,7 @@ function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
         </Link>
       </div>
       <CardContent className="text-center pt-12 pb-4">
-        <Link href="/profile">
+        <Link href={profileUrl}>
           <h2 className="text-xl font-bold cursor-pointer hover:underline">{displayName}</h2>
         </Link>
         <p className="text-sm text-muted-foreground mt-1">
@@ -430,23 +432,21 @@ function PostCard({ post, currentUserId }: { post: FeedPost; currentUserId?: str
 
   const handleAuthorClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Navigate to profile - for now using /profile, but ideally should be /profile/[userId]
-    // Since we don't have dynamic profile routes yet, we'll use a query param or create one
-    router.push(`/profile?userId=${post.author_id}`);
+    router.push(`/users/${post.author_id}`);
   };
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center gap-4">
-          <Link href={`/profile?userId=${post.author_id}`} onClick={handleAuthorClick}>
+          <Link href={`/users/${post.author_id}`} onClick={handleAuthorClick}>
             <Avatar className="cursor-pointer hover:opacity-80 transition-opacity">
               <AvatarImage src={post.author_avatar} alt={post.author_name} />
               <AvatarFallback>{post.author_name?.substring(0, 2) || 'U'}</AvatarFallback>
             </Avatar>
           </Link>
           <div className="flex-1">
-            <Link href={`/profile?userId=${post.author_id}`} onClick={handleAuthorClick}>
+            <Link href={`/users/${post.author_id}`} onClick={handleAuthorClick}>
               <CardTitle className="text-base font-semibold leading-tight hover:underline cursor-pointer">
                 {post.author_name || 'Anonymous'}
               </CardTitle>
@@ -776,6 +776,7 @@ export default function Home() {
   const displayName = user?.user_metadata?.full_name || user?.email || 'User';
   const avatarUrl = user?.user_metadata?.avatar_url || profilePic?.imageUrl;
   const isHomePage = pathname === '/';
+  const profileUrl = user ? `/users/${user.id}` : '/login';
 
   return (
     <>
@@ -794,7 +795,7 @@ export default function Home() {
             <main className="lg:col-span-2 space-y-6">
               <Card className="overflow-hidden">
                 <CardHeader className="flex flex-row items-center gap-4">
-                  <Link href="/profile">
+                  <Link href={profileUrl}>
                     <Avatar className="h-12 w-12">
                       <AvatarImage src={avatarUrl} alt={displayName} />
                       <AvatarFallback>{displayName.substring(0, 2)}</AvatarFallback>

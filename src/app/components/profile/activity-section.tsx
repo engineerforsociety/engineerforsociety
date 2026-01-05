@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -21,18 +22,24 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 
 type Activity = {
-  id: string;
+  activity_id: string;
+  user_id: string;
   activity_type: string;
   created_at: string;
-  activity_data: any;
-  user_name: string | null;
-  user_avatar: string | null;
-  user_job_title: string | null;
-  post_title?: string;
-  post_content?: string;
-  post_slug?: string;
-  comment_content?: string;
+  activity_data: {
+    post_id?: string;
+    post_title?: string;
+    post_content?: string;
+    post_slug?: string;
+    comment_id?: string;
+    comment_content?: string;
+  };
 };
+
+type ProfileInfo = {
+    full_name: string | null;
+    avatar_url: string | null;
+}
 
 type ActivitySectionProps = {
   userId: string;
@@ -41,17 +48,29 @@ type ActivitySectionProps = {
 
 export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectionProps) {
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [profileInfo, setProfileInfo] = useState<ProfileInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'posts' | 'comments' | 'all'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'posts' | 'comments'>('all');
   const supabase = createClient();
 
   useEffect(() => {
-    fetchActivities();
+    fetchProfileAndActivities();
   }, [userId, activeTab]);
 
-  const fetchActivities = async () => {
+  const fetchProfileAndActivities = async () => {
     setLoading(true);
     try {
+      // Fetch profile info first
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', userId)
+        .single();
+      
+      if (profileError) throw profileError;
+      setProfileInfo(profileData);
+
+      // Then fetch activities
       let query = supabase
         .from('user_activity_feed')
         .select('*')
@@ -59,7 +78,6 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
         .order('created_at', { ascending: false })
         .limit(20);
 
-      // Filter by activity type if tab is selected
       if (activeTab === 'posts') {
         query = query.eq('activity_type', 'post');
       } else if (activeTab === 'comments') {
@@ -83,16 +101,6 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
         return <FileText className="h-5 w-5 text-blue-500" />;
       case 'comment':
         return <MessageSquare className="h-5 w-5 text-green-500" />;
-      case 'reaction':
-        return <Heart className="h-5 w-5 text-red-500 fill-current" />;
-      case 'share':
-        return <Share2 className="h-5 w-5 text-purple-500" />;
-      case 'repost':
-        return <Repeat2 className="h-5 w-5 text-orange-500" />;
-      case 'experience_added':
-        return <Briefcase className="h-5 w-5 text-indigo-500" />;
-      case 'education_added':
-        return <GraduationCap className="h-5 w-5 text-teal-500" />;
       default:
         return <FileText className="h-5 w-5" />;
     }
@@ -104,18 +112,6 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
         return 'posted';
       case 'comment':
         return 'commented on';
-      case 'reaction':
-        return 'liked';
-      case 'share':
-        return 'shared';
-      case 'repost':
-        return 'reposted';
-      case 'experience_added':
-        const expData = activity.activity_data;
-        return `added experience: ${expData?.title || ''} at ${expData?.company || ''}`;
-      case 'education_added':
-        const eduData = activity.activity_data;
-        return `added education: ${eduData?.degree || ''} from ${eduData?.school || ''}`;
       default:
         return 'performed an action';
     }
@@ -162,7 +158,7 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
             variant={activeTab === 'all' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('all')}
-            className="rounded-none border-b-2 border-transparent data-[active=true]:border-primary"
+            className={`rounded-none border-b-2 ${activeTab === 'all' ? 'border-primary' : 'border-transparent'} hover:border-primary/50`}
           >
             All
           </Button>
@@ -170,7 +166,7 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
             variant={activeTab === 'posts' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('posts')}
-            className="rounded-none border-b-2 border-transparent data-[active=true]:border-primary"
+            className={`rounded-none border-b-2 ${activeTab === 'posts' ? 'border-primary' : 'border-transparent'} hover:border-primary/50`}
           >
             Posts
           </Button>
@@ -178,7 +174,7 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
             variant={activeTab === 'comments' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('comments')}
-            className="rounded-none border-b-2 border-transparent data-[active=true]:border-primary"
+            className={`rounded-none border-b-2 ${activeTab === 'comments' ? 'border-primary' : 'border-transparent'} hover:border-primary/50`}
           >
             Comments
           </Button>
@@ -197,19 +193,19 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
           </div>
         ) : (
           activities.map((activity) => (
-            <div key={activity.id} className="space-y-3">
+            <div key={activity.activity_id} className="space-y-3">
               <div className="flex gap-3">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={activity.user_avatar || undefined} alt={activity.user_name || 'User'} />
+                  <AvatarImage src={profileInfo?.avatar_url || undefined} alt={profileInfo?.full_name || 'User'} />
                   <AvatarFallback>
-                    {(activity.user_name || 'U').substring(0, 2).toUpperCase()}
+                    {(profileInfo?.full_name || 'U').substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
                     {getActivityIcon(activity.activity_type)}
-                    <span className="font-semibold">{activity.user_name || 'User'}</span>
+                    <span className="font-semibold">{profileInfo?.full_name || 'User'}</span>
                     <span className="text-muted-foreground text-sm">
                       {getActivityText(activity)}
                     </span>
@@ -219,37 +215,34 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
                   </div>
                   
                   {/* Post Content */}
-                  {activity.post_title && (
+                  {activity.activity_data.post_title && (
                     <div className="bg-muted/50 rounded-lg p-3 mt-2 border-l-4 border-primary">
                       <Link 
-                        href={`/forums/post/${activity.post_slug || activity.id}`}
+                        href={`/forums/post/${activity.activity_data.post_slug || activity.activity_data.post_id}`}
                         className="hover:underline"
                       >
-                        <h4 className="font-semibold text-sm mb-1">{activity.post_title}</h4>
+                        <h4 className="font-semibold text-sm mb-1">{activity.activity_data.post_title}</h4>
                       </Link>
-                      {activity.post_content && (
+                      {activity.activity_data.post_content && (
                         <p className="text-sm text-muted-foreground line-clamp-2">
-                          {activity.post_content}
+                          {activity.activity_data.post_content}
                         </p>
                       )}
                     </div>
                   )}
                   
                   {/* Comment Content */}
-                  {activity.comment_content && (
-                    <div className="bg-muted/50 rounded-lg p-3 mt-2 border-l-4 border-green-500">
-                      <p className="text-sm">{activity.comment_content}</p>
-                    </div>
+                  {activity.activity_data.comment_content && (
+                     <div className="bg-muted/50 rounded-lg p-3 mt-2 border-l-4 border-green-500">
+                        <p className="text-sm text-muted-foreground italic mb-2">commented on: 
+                            <Link href={`/forums/post/${activity.activity_data.post_slug}`} className="font-semibold text-primary/80 hover:underline ml-1">
+                                {activity.activity_data.post_title}
+                            </Link>
+                        </p>
+                       <p className="text-sm">{activity.activity_data.comment_content}</p>
+                     </div>
                   )}
-                  
-                  {/* Activity Data */}
-                  {activity.activity_data && !activity.post_title && !activity.comment_content && (
-                    <div className="text-sm text-muted-foreground mt-1">
-                      {typeof activity.activity_data === 'object' 
-                        ? JSON.stringify(activity.activity_data)
-                        : activity.activity_data}
-                    </div>
-                  )}
+
                 </div>
               </div>
               <Separator />
@@ -260,4 +253,3 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
     </Card>
   );
 }
-

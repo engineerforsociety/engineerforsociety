@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -29,17 +30,22 @@ export function useNotifications() {
 
     const fetchNotifications = useCallback(async () => {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+            setLoading(false);
+            return;
+        }
 
         const { data, error } = await supabase
             .from('notifications')
             .select('*')
             .eq('user_id', user.id)
+            .not('type', 'eq', 'new_message') // Filter out message notifications
             .order('created_at', { ascending: false })
             .limit(50);
 
         if (error) {
             console.error('Error fetching notifications:', error);
+            setLoading(false);
             return;
         }
 
@@ -69,6 +75,12 @@ export function useNotifications() {
                     },
                     (payload) => {
                         const newNotification = payload.new as Notification;
+                        
+                        // Ignore 'new_message' notifications
+                        if (newNotification.type === 'new_message') {
+                            return;
+                        }
+
                         setNotifications(prev => [newNotification, ...prev]);
                         setUnreadCount(prev => prev + 1);
 
@@ -117,7 +129,8 @@ export function useNotifications() {
             .from('notifications')
             .update({ is_read: true, read_at: new Date().toISOString() })
             .eq('user_id', user.id)
-            .eq('is_read', false);
+            .eq('is_read', false)
+            .not('type', 'eq', 'new_message');
 
         if (error) {
             console.error('Error marking all as read:', error);

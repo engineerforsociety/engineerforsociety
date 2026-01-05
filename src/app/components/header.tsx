@@ -162,7 +162,7 @@ function MobileNav({ user, counts }: { user: SupabaseUser | null, counts: { noti
 
     return (
         <>
-            <header className="sticky top-0 z-50 w-full border-b bg-background md:hidden">
+            <header className="fixed top-0 left-0 right-0 z-50 w-full border-b bg-background md:hidden">
                 <div className="container flex h-16 items-center px-4">
                     <Sheet>
                         <SheetTrigger asChild>
@@ -264,7 +264,7 @@ function MobileNav({ user, counts }: { user: SupabaseUser | null, counts: { noti
                             <Button variant="ghost" size="icon" className="relative">
                                 <MessageSquare className="h-6 w-6" />
                                 {counts.messages > 0 && (
-                                     <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
                                         {counts.messages > 9 ? '9+' : counts.messages}
                                     </span>
                                 )}
@@ -273,6 +273,9 @@ function MobileNav({ user, counts }: { user: SupabaseUser | null, counts: { noti
                     </div>
                 </div>
             </header>
+            {/* Spacer to prevent content from jumping under fixed header on mobile */}
+            <div className="h-16 md:hidden" aria-hidden="true" />
+
 
             <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background md:hidden">
                 <div className="grid h-16 grid-cols-5 items-center justify-items-center">
@@ -310,7 +313,7 @@ export function Header() {
     const supabase = createClient();
     const { unreadCount: unreadNotifications } = useNotifications();
     const { unreadCount: unreadMessages } = useMessages();
-    
+
     const counts = {
         notifications: unreadNotifications,
         messages: unreadMessages

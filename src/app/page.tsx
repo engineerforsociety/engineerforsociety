@@ -78,10 +78,10 @@ type FeedPost = {
 };
 
 type SuggestedUser = {
-    id: string;
-    full_name: string | null;
-    job_title: string | null;
-    avatar_url: string | null;
+  id: string;
+  full_name: string | null;
+  job_title: string | null;
+  avatar_url: string | null;
 }
 
 function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
@@ -566,89 +566,93 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
 }
 
 const subNavLinks = [
-    { href: '/forums', label: 'Forums', icon: Users },
-    { href: '/podcasts', label: 'Podcasts', icon: Podcast },
-    { href: '/resources', label: 'Resources', icon: BookOpen },
-    { href: '/chapters', label: 'Chapters', icon: Users },
+  { href: '/forums', label: 'Forums', icon: Users },
+  { href: '/podcasts', label: 'Podcasts', icon: Podcast },
+  { href: '/resources', label: 'Resources', icon: BookOpen },
+  { href: '/chapters', label: 'Chapters', icon: Users },
 ]
 
 function SubNav() {
-    const pathname = usePathname();
-    return (
-        <div className="bg-card border-b sticky top-16 z-40">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-                <div className="flex justify-center items-center h-14">
-                    <nav className="flex space-x-6">
-                        {subNavLinks.map((link) => {
-                            const isActive = pathname === link.href;
-                            return (
-                                <Link
-                                    key={link.href}
-                                    href={link.href}
-                                    className={cn(
-                                        "flex items-center gap-2 text-sm font-medium transition-colors",
-                                        isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                                    )}
-                                >
-                                    <link.icon className="h-5 w-5" />
-                                    <span>{link.label}</span>
-                                </Link>
-                            )
-                        })}
-                    </nav>
-                </div>
-            </div>
+  const pathname = usePathname();
+  return (
+    <>
+      <div className="bg-card border-b fixed top-16 left-0 right-0 z-40 w-full md:sticky">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+          <div className="flex justify-center items-center h-14">
+            <nav className="flex space-x-6">
+              {subNavLinks.map((link) => {
+                const isActive = pathname === link.href;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={cn(
+                      "flex items-center gap-2 text-sm font-medium transition-colors",
+                      isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <link.icon className="h-5 w-5" />
+                    <span>{link.label}</span>
+                  </Link>
+                )
+              })}
+            </nav>
+          </div>
         </div>
-    )
+      </div>
+      {/* Spacer to prevent content from jumping under fixed subnav on mobile */}
+      <div className="h-14 md:hidden" aria-hidden="true" />
+    </>
+  )
 }
 
 function SuggestedFollows({ currentUser }: { currentUser: User | null }) {
-    const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
-    const supabase = createClient();
+  const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
+  const supabase = createClient();
 
-    useEffect(() => {
-        const fetchSuggestedUsers = async () => {
-            if (!currentUser) return;
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, job_title, avatar_url')
-                .not('id', 'eq', currentUser.id)
-                .limit(3);
+  useEffect(() => {
+    const fetchSuggestedUsers = async () => {
+      if (!currentUser) return;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, job_title, avatar_url')
+        .not('id', 'eq', currentUser.id)
+        .limit(3);
 
-            if (error) {
-                console.error('Error fetching suggested users:', error);
-            } else {
-                setSuggestedUsers(data);
-            }
-        };
-        fetchSuggestedUsers();
-    }, [currentUser, supabase]);
-    
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Add to your feed</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {suggestedUsers.map(user => (
-                    <div key={user.id} className="flex items-center gap-3">
-                        <Avatar>
-                            <AvatarImage src={user.avatar_url || undefined} alt={user.full_name || 'User'} />
-                            <AvatarFallback>{(user.full_name || 'U').substring(0, 2)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                            <p className="text-sm font-semibold hover:underline cursor-pointer">{user.full_name}</p>
-                            <p className="text-xs text-muted-foreground">{user.job_title || 'Community Member'}</p>
-                        </div>
-                        <Button variant="outline" size="sm" className="rounded-full flex items-center gap-1">
-                            <Plus className="h-4 w-4" /> Follow
-                        </Button>
-                    </div>
-                ))}
-                <Button variant="link" size="sm" className="text-muted-foreground font-bold">View all recommendations</Button>
-            </CardContent>
-        </Card>
-    );
+      if (error) {
+        console.error('Error fetching suggested users:', error);
+      } else {
+        setSuggestedUsers(data);
+      }
+    };
+    fetchSuggestedUsers();
+  }, [currentUser, supabase]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Add to your feed</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {suggestedUsers.map(user => (
+          <div key={user.id} className="flex items-center gap-3">
+            <Avatar>
+              <AvatarImage src={user.avatar_url || undefined} alt={user.full_name || 'User'} />
+              <AvatarFallback>{(user.full_name || 'U').substring(0, 2)}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <p className="text-sm font-semibold hover:underline cursor-pointer">{user.full_name}</p>
+              <p className="text-xs text-muted-foreground">{user.job_title || 'Community Member'}</p>
+            </div>
+            <Button variant="outline" size="sm" className="rounded-full flex items-center gap-1">
+              <Plus className="h-4 w-4" /> Follow
+            </Button>
+          </div>
+        ))}
+        <Button variant="link" size="sm" className="text-muted-foreground font-bold">View all recommendations</Button>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function Home() {

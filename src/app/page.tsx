@@ -38,11 +38,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { sampleForumPosts, sampleTrendingTopics, sampleUsersToFollow, sampleUserProfile } from '@/lib/data';
+import { sampleTrendingTopics, sampleUsersToFollow, sampleUserProfile } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import { CreatePostModal } from '@/app/components/create-post-modal';
+import { PostJobModal } from '@/app/components/post-job-modal';
 import { LandingHero } from '@/app/components/landing-hero';
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -554,7 +555,8 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
 
 export default function Home() {
   const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [isJobModalOpen, setIsJobModalOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -652,15 +654,6 @@ export default function Home() {
     };
   }, [user, supabase]);
 
-  const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -691,7 +684,9 @@ export default function Home() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-muted/40">
       <div className="max-w-7xl mx-auto">
-        <CreatePostModal isOpen={isModalOpen} onOpenChange={setIsModalOpen} />
+        <CreatePostModal isOpen={isPostModalOpen} onOpenChange={setIsPostModalOpen} />
+        <PostJobModal isOpen={isJobModalOpen} onOpenChange={setIsJobModalOpen} />
+
         <div className="grid lg:grid-cols-4 gap-8 items-start">
           <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
             <ProfileCard user={user} profile={profile} />
@@ -709,7 +704,7 @@ export default function Home() {
                 </Link>
                 <div className="flex-1">
                   <button
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => setIsPostModalOpen(true)}
                     className="w-full bg-muted rounded-full px-4 py-3 text-sm text-left text-muted-foreground border-transparent hover:bg-border transition-colors"
                   >
                     Start a post
@@ -719,7 +714,7 @@ export default function Home() {
               <CardFooter className="flex justify-around">
                 <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><BookCopy className="text-sky-500" /> Write article</Button>
                 <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Calendar className="text-amber-500" /> Create event</Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Newspaper className="text-rose-500" /> Post a job</Button>
+                <Button onClick={() => setIsJobModalOpen(true)} variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Newspaper className="text-rose-500" /> Post a job</Button>
               </CardFooter>
             </Card>
 
@@ -735,7 +730,7 @@ export default function Home() {
                       <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto" />
                       <h3 className="font-semibold text-lg">No posts yet</h3>
                       <p className="text-muted-foreground">Be the first to share something with the community!</p>
-                      <Button onClick={() => setIsModalOpen(true)} className="mt-4">
+                      <Button onClick={() => setIsPostModalOpen(true)} className="mt-4">
                         <Plus className="mr-2 h-4 w-4" /> Create your first post
                       </Button>
                     </div>

@@ -46,7 +46,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { sampleTrendingTopics, sampleUserProfile } from '@/lib/data';
+import { sampleTrendingTopics } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
@@ -56,12 +56,12 @@ import { LandingHero } from '@/app/components/landing-hero';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { Logo } from '@/app/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { SharePostModal } from '@/app/components/share-post-modal';
 import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
+import { formatDistanceToNow } from 'date-fns';
 
 type FeedPost = {
   id: string;
@@ -99,6 +99,8 @@ function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || profilePic?.imageUrl;
   const coverUrl = profile?.cover_url || null;
 
+  const profileUrl = user ? `/users/${user.id}` : '/login';
+
   return (
     <Card className="overflow-hidden">
       <div className="relative h-20 w-full bg-muted">
@@ -107,7 +109,7 @@ function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
         ) : (
           <div className="w-full h-full bg-gradient-to-r from-primary/10 to-secondary/10" />
         )}
-        <Link href="/profile">
+        <Link href={profileUrl}>
           <Avatar className="h-20 w-20 mx-auto absolute -bottom-10 left-1/2 -translate-x-1/2 border-4 border-background cursor-pointer hover:opacity-90 transition-opacity">
             <AvatarImage src={avatarUrl} alt={displayName} />
             <AvatarFallback>{displayName.substring(0, 2)}</AvatarFallback>
@@ -115,7 +117,7 @@ function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
         </Link>
       </div>
       <CardContent className="text-center pt-12 pb-4">
-        <Link href="/profile">
+        <Link href={profileUrl}>
           <h2 className="text-xl font-bold cursor-pointer hover:underline">{displayName}</h2>
         </Link>
         <p className="text-sm text-muted-foreground mt-1">
@@ -175,7 +177,7 @@ function RecentActivityCard() {
   )
 }
 
-function PostCard({ post, currentUserId, formatDate, onRefresh }: { post: FeedPost; currentUserId?: string; formatDate: (date: string) => string; onRefresh?: () => void }) {
+function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentUserId?: string; onRefresh?: () => void }) {
   const supabase = createClient();
   const { toast } = useToast();
   const router = useRouter();
@@ -232,6 +234,14 @@ function PostCard({ post, currentUserId, formatDate, onRefresh }: { post: FeedPo
       toast({ title: 'Error', description: err.message || 'Failed to delete post.', variant: 'destructive' });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return `${formatDistanceToNow(new Date(dateString))} ago`;
+    } catch (error) {
+      return 'a while ago';
     }
   };
 
@@ -568,23 +578,21 @@ function PostCard({ post, currentUserId, formatDate, onRefresh }: { post: FeedPo
 
   const handleAuthorClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Navigate to profile - for now using /profile, but ideally should be /profile/[userId]
-    // Since we don't have dynamic profile routes yet, we'll use a query param or create one
-    router.push(`/profile?userId=${post.author_id}`);
+    router.push(`/users/${post.author_id}`);
   };
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center gap-4">
-          <Link href={`/profile?userId=${post.author_id}`} onClick={handleAuthorClick}>
+          <Link href={`/users/${post.author_id}`} onClick={handleAuthorClick}>
             <Avatar className="cursor-pointer hover:opacity-80 transition-opacity">
               <AvatarImage src={post.author_avatar} alt={post.author_name} />
               <AvatarFallback>{post.author_name?.substring(0, 2) || 'U'}</AvatarFallback>
             </Avatar>
           </Link>
           <div className="flex-1">
-            <Link href={`/profile?userId=${post.author_id}`} onClick={handleAuthorClick}>
+            <Link href={`/users/${post.author_id}`} onClick={handleAuthorClick}>
               <CardTitle className="text-base font-semibold leading-tight hover:underline cursor-pointer">
                 {post.author_name || 'Anonymous'}
               </CardTitle>
@@ -1031,18 +1039,6 @@ export default function Home() {
     };
   }, [user, supabase]);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 48) return 'Yesterday';
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-    return date.toLocaleDateString();
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -1055,9 +1051,10 @@ export default function Home() {
     return <LandingHero />;
   }
 
-  const displayName = user?.user_metadata?.full_name || user?.email || sampleUserProfile.name;
+  const displayName = user?.user_metadata?.full_name || user?.email || 'User';
   const avatarUrl = user?.user_metadata?.avatar_url || profilePic?.imageUrl;
   const isHomePage = pathname === '/';
+  const profileUrl = user ? `/users/${user.id}` : '/login';
 
   return (
     <>
@@ -1079,7 +1076,7 @@ export default function Home() {
             <main className="lg:col-span-2 space-y-6">
               <Card className="overflow-hidden">
                 <CardHeader className="flex flex-row items-center gap-4">
-                  <Link href="/profile">
+                  <Link href={profileUrl}>
                     <Avatar className="h-12 w-12">
                       <AvatarImage src={avatarUrl} alt={displayName} />
                       <AvatarFallback>{displayName.substring(0, 2)}</AvatarFallback>
@@ -1130,7 +1127,7 @@ export default function Home() {
 
                           return uniquePosts.map((post) => (
                             <div className="px-4" key={post.id}>
-                              <PostCard post={post} currentUserId={user?.id} formatDate={formatDate} onRefresh={fetchPosts} />
+                              <PostCard post={post} currentUserId={user?.id} onRefresh={fetchPosts} />
                             </div>
                           ));
                         })()}

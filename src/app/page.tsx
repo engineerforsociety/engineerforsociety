@@ -18,6 +18,8 @@ import {
   Code,
   X,
   UserMinus,
+  Podcast,
+  BookOpen,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +54,8 @@ import { Logo } from '@/app/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { SharePostModal } from '@/app/components/share-post-modal';
+import { cn } from '@/lib/utils';
+import { usePathname } from 'next/navigation';
 
 type FeedPost = {
   id: string;
@@ -553,6 +557,42 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
   );
 }
 
+const subNavLinks = [
+    { href: '/podcasts', label: 'Podcasts', icon: Podcast },
+    { href: '/resources', label: 'Resources', icon: BookOpen },
+    { href: '/chapters', label: 'Chapters', icon: Users },
+]
+
+function SubNav() {
+    const pathname = usePathname();
+    return (
+        <div className="bg-card border-b sticky top-16 z-40">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+                <div className="flex justify-center items-center h-14">
+                    <nav className="flex space-x-6">
+                        {subNavLinks.map((link) => {
+                            const isActive = pathname === link.href;
+                            return (
+                                <Link
+                                    key={link.href}
+                                    href={link.href}
+                                    className={cn(
+                                        "flex items-center gap-2 text-sm font-medium transition-colors",
+                                        isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    <link.icon className="h-5 w-5" />
+                                    <span>{link.label}</span>
+                                </Link>
+                            )
+                        })}
+                    </nav>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 export default function Home() {
   const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
@@ -563,6 +603,7 @@ export default function Home() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const supabase = createClient();
+  const pathname = usePathname();
 
   useEffect(() => {
     const getUserAndProfile = async () => {
@@ -680,129 +721,133 @@ export default function Home() {
 
   const displayName = user?.user_metadata?.full_name || user?.email || sampleUserProfile.name;
   const avatarUrl = user?.user_metadata?.avatar_url || profilePic?.imageUrl;
+  const isHomePage = pathname === '/';
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 bg-muted/40">
-      <div className="max-w-7xl mx-auto">
-        <CreatePostModal isOpen={isPostModalOpen} onOpenChange={setIsPostModalOpen} />
-        <PostJobModal isOpen={isJobModalOpen} onOpenChange={setIsJobModalOpen} />
+    <>
+      {isHomePage && <SubNav />}
+      <div className="p-4 sm:p-6 lg:p-8 bg-muted/40">
+        <div className="max-w-7xl mx-auto">
+          <CreatePostModal isOpen={isPostModalOpen} onOpenChange={setIsPostModalOpen} />
+          <PostJobModal isOpen={isJobModalOpen} onOpenChange={setIsJobModalOpen} />
 
-        <div className="grid lg:grid-cols-4 gap-8 items-start">
-          <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
-            <ProfileCard user={user} profile={profile} />
-            <RecentActivityCard />
-          </aside>
+          <div className="grid lg:grid-cols-4 gap-8 items-start">
+            <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
+              <ProfileCard user={user} profile={profile} />
+              <RecentActivityCard />
+            </aside>
 
-          <main className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center gap-4">
-                <Link href="/profile">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={avatarUrl} alt={displayName} />
-                    <AvatarFallback>{displayName.substring(0, 2)}</AvatarFallback>
-                  </Avatar>
-                </Link>
-                <div className="flex-1">
-                  <button
-                    onClick={() => setIsPostModalOpen(true)}
-                    className="w-full bg-muted rounded-full px-4 py-3 text-sm text-left text-muted-foreground border-transparent hover:bg-border transition-colors"
-                  >
-                    Start a post
-                  </button>
-                </div>
-              </CardHeader>
-              <CardFooter className="flex justify-around">
-                <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><BookCopy className="text-sky-500" /> Write article</Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Calendar className="text-amber-500" /> Create event</Button>
-                <Button onClick={() => setIsJobModalOpen(true)} variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Newspaper className="text-rose-500" /> Post a job</Button>
-              </CardFooter>
-            </Card>
+            <main className="lg:col-span-2 space-y-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center gap-4">
+                  <Link href="/profile">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={avatarUrl} alt={displayName} />
+                      <AvatarFallback>{displayName.substring(0, 2)}</AvatarFallback>
+                    </Avatar>
+                  </Link>
+                  <div className="flex-1">
+                    <button
+                      onClick={() => setIsPostModalOpen(true)}
+                      className="w-full bg-muted rounded-full px-4 py-3 text-sm text-left text-muted-foreground border-transparent hover:bg-border transition-colors"
+                    >
+                      Start a post
+                    </button>
+                  </div>
+                </CardHeader>
+                <CardFooter className="flex justify-around">
+                  <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><BookCopy className="text-sky-500" /> Write article</Button>
+                  <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Calendar className="text-amber-500" /> Create event</Button>
+                  <Button onClick={() => setIsJobModalOpen(true)} variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Newspaper className="text-rose-500" /> Post a job</Button>
+                </CardFooter>
+              </Card>
 
-            {
-              loadingPosts ? (
-                <div className="flex justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : posts.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12">
-                    <div className="text-center space-y-2">
-                      <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto" />
-                      <h3 className="font-semibold text-lg">No posts yet</h3>
-                      <p className="text-muted-foreground">Be the first to share something with the community!</p>
-                      <Button onClick={() => setIsPostModalOpen(true)} className="mt-4">
-                        <Plus className="mr-2 h-4 w-4" /> Create your first post
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-4">
-                  {(() => {
-                    // Final deduplication before rendering
-                    const seenIds = new Set<string>();
-                    const uniquePosts = posts.filter((post) => {
-                      if (seenIds.has(post.id)) {
-                        return false;
-                      }
-                      seenIds.add(post.id);
-                      return true;
-                    });
-
-                    return uniquePosts.map((post) => (
-                      <PostCard key={post.id} post={post} currentUserId={user?.id} formatDate={formatDate} />
-                    ));
-                  })()}
-                </div>
-              )
-            }
-          </main >
-
-          <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
-            <Card>
-              <CardHeader>
-                <CardTitle>Add to your feed</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {sampleUsersToFollow.map(user => {
-                  const userImage = PlaceHolderImages.find(p => p.id === user.avatarId);
-                  return (
-                    <div key={user.id} className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={userImage?.imageUrl} alt={user.name} data-ai-hint={userImage?.imageHint} />
-                        <AvatarFallback>{user.name.substring(0, 2)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold hover:underline cursor-pointer">{user.name}</p>
-                        <p className="text-xs text-muted-foreground">{user.title}</p>
+              {
+                loadingPosts ? (
+                  <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : posts.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-12">
+                      <div className="text-center space-y-2">
+                        <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto" />
+                        <h3 className="font-semibold text-lg">No posts yet</h3>
+                        <p className="text-muted-foreground">Be the first to share something with the community!</p>
+                        <Button onClick={() => setIsPostModalOpen(true)} className="mt-4">
+                          <Plus className="mr-2 h-4 w-4" /> Create your first post
+                        </Button>
                       </div>
-                      <Button variant="outline" size="sm" className="rounded-full flex items-center gap-1">
-                        <Plus className="h-4 w-4" /> Follow
-                      </Button>
-                    </div>
-                  )
-                })}
-                <Button variant="link" size="sm" className="text-muted-foreground font-bold">View all recommendations</Button>
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-4">
+                    {(() => {
+                      // Final deduplication before rendering
+                      const seenIds = new Set<string>();
+                      const uniquePosts = posts.filter((post) => {
+                        if (seenIds.has(post.id)) {
+                          return false;
+                        }
+                        seenIds.add(post.id);
+                        return true;
+                      });
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Trending Topics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {sampleTrendingTopics.map(topic => (
-                    <Badge key={topic} variant="outline" className="text-sm font-semibold p-2 hover:bg-muted cursor-pointer">
-                      # {topic}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </aside>
+                      return uniquePosts.map((post) => (
+                        <PostCard key={post.id} post={post} currentUserId={user?.id} formatDate={formatDate} />
+                      ));
+                    })()}
+                  </div>
+                )
+              }
+            </main >
+
+            <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add to your feed</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {sampleUsersToFollow.map(user => {
+                    const userImage = PlaceHolderImages.find(p => p.id === user.avatarId);
+                    return (
+                      <div key={user.id} className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarImage src={userImage?.imageUrl} alt={user.name} data-ai-hint={userImage?.imageHint} />
+                          <AvatarFallback>{user.name.substring(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold hover:underline cursor-pointer">{user.name}</p>
+                          <p className="text-xs text-muted-foreground">{user.title}</p>
+                        </div>
+                        <Button variant="outline" size="sm" className="rounded-full flex items-center gap-1">
+                          <Plus className="h-4 w-4" /> Follow
+                        </Button>
+                      </div>
+                    )
+                  })}
+                  <Button variant="link" size="sm" className="text-muted-foreground font-bold">View all recommendations</Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Trending Topics</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {sampleTrendingTopics.map(topic => (
+                      <Badge key={topic} variant="outline" className="text-sm font-semibold p-2 hover:bg-muted cursor-pointer">
+                        # {topic}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </aside>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -738,7 +738,7 @@ export default function Home() {
             </aside>
 
             <main className="lg:col-span-2 space-y-6">
-              <Card>
+              <Card className="overflow-hidden">
                 <CardHeader className="flex flex-row items-center gap-4">
                   <Link href="/profile">
                     <Avatar className="h-12 w-12">
@@ -760,46 +760,46 @@ export default function Home() {
                   <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Calendar className="text-amber-500" /> Create event</Button>
                   <Button onClick={() => setIsJobModalOpen(true)} variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Newspaper className="text-rose-500" /> Post a job</Button>
                 </CardFooter>
+
+                <div className="border-t">
+                  {
+                    loadingPosts ? (
+                      <div className="flex justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    ) : posts.length === 0 ? (
+                      <div className="py-12">
+                        <div className="text-center space-y-2">
+                          <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto" />
+                          <h3 className="font-semibold text-lg">No posts yet</h3>
+                          <p className="text-muted-foreground">Be the first to share something with the community!</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4 pt-4 bg-muted/20">
+                        {(() => {
+                          // Final deduplication before rendering
+                          const seenIds = new Set<string>();
+                          const uniquePosts = posts.filter((post) => {
+                            if (seenIds.has(post.id)) {
+                              return false;
+                            }
+                            seenIds.add(post.id);
+                            return true;
+                          });
+
+                          return uniquePosts.map((post) => (
+                            <div className="px-4" key={post.id}>
+                              <PostCard post={post} currentUserId={user?.id} formatDate={formatDate} />
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    )
+                  }
+                </div>
               </Card>
 
-              {
-                loadingPosts ? (
-                  <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
-                ) : posts.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-12">
-                      <div className="text-center space-y-2">
-                        <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto" />
-                        <h3 className="font-semibold text-lg">No posts yet</h3>
-                        <p className="text-muted-foreground">Be the first to share something with the community!</p>
-                        <Button onClick={() => setIsPostModalOpen(true)} className="mt-4">
-                          <Plus className="mr-2 h-4 w-4" /> Create your first post
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="space-y-4">
-                    {(() => {
-                      // Final deduplication before rendering
-                      const seenIds = new Set<string>();
-                      const uniquePosts = posts.filter((post) => {
-                        if (seenIds.has(post.id)) {
-                          return false;
-                        }
-                        seenIds.add(post.id);
-                        return true;
-                      });
-
-                      return uniquePosts.map((post) => (
-                        <PostCard key={post.id} post={post} currentUserId={user?.id} formatDate={formatDate} />
-                      ));
-                    })()}
-                  </div>
-                )
-              }
             </main >
 
             <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">

@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
+import { useMessages } from '@/hooks/use-messages';
 import {
   Send,
   Search,
@@ -26,42 +26,18 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import type { Profile, Message, Conversation } from '@/lib/types/messages';
 
-interface Profile {
-  id: string;
-  username: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  job_title: string | null;
-}
-
-interface Message {
-  id: string;
-  sender_id: string;
-  recipient_id: string;
-  content: string;
-  is_read: boolean;
-  read_at: string | null;
-  created_at: string;
-  sender?: Profile;
-  recipient?: Profile;
-}
-
-interface Conversation {
-  otherUser: Profile;
-  lastMessage: Message;
-  unreadCount: number;
-}
 
 export default function MessagesPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const { conversations, loading: loadingConversations } = useMessages();
   const [selectedConversation, setSelectedConversation] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [allUsers, setAllUsers] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [showNewMessage, setShowNewMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -71,33 +47,15 @@ export default function MessagesPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    fetchUser();
-    fetchConversations();
-    fetchAllUsers();
+    fetchUserAndProfiles();
   }, []);
 
   // Separate effect for realtime subscription that depends on user
   useEffect(() => {
     if (!user) return;
 
-    console.log('Setting up realtime subscription for user:', user.id);
-
-    // Subscribe to new messages
     const channel = supabase
-      .channel('messages-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'messages',
-          filter: `sender_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('Realtime event (sent):', payload);
-          handleRealtimeMessage(payload);
-        }
-      )
+      .channel('messages-realtime-page')
       .on(
         'postgres_changes',
         {
@@ -106,20 +64,27 @@ export default function MessagesPage() {
           table: 'messages',
           filter: `recipient_id=eq.${user.id}`
         },
-        (payload) => {
-          console.log('Realtime event (received):', payload);
-          handleRealtimeMessage(payload);
-        }
+        (payload) => handleRealtimeMessage(payload)
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `sender_id=eq.${user.id}`
+        },
+        (payload) => handleRealtimeMessage(payload)
       )
       .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
+        console.log('Messages page subscription status:', status);
       });
 
     return () => {
-      console.log('Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
   }, [user?.id, selectedConversation?.id]);
+
 
   useEffect(() => {
     if (selectedConversation) {
@@ -128,10 +93,6 @@ export default function MessagesPage() {
   }, [selectedConversation]);
 
   useEffect(() => {
-    // When messages change or conversation changes, scroll to bottom.
-    // We use 'false' (instant jump) for conversation changes to avoid 
-    // seeing a fast scroll animation when switching users.
-    // We use 'true' (smooth) when just a message is added.
     const shouldSmooth = messages.length > 0;
     scrollToBottom(shouldSmooth);
   }, [messages, selectedConversation]);
@@ -145,15 +106,10 @@ export default function MessagesPage() {
   };
 
   const scrollToBottom = (smooth = true) => {
-    // We use a requestAnimationFrame or simple timeout to ensure the DOM 
-    // has finished painting the new message height before we scroll.
     setTimeout(() => {
       if (scrollContainerRef.current) {
         const scrollableNode = scrollContainerRef.current;
-        
-        // Calculate the maximum scroll top value
         const maxScrollTop = scrollableNode.scrollHeight - scrollableNode.clientHeight;
-        
         scrollableNode.scrollTo({
           top: maxScrollTop,
           behavior: smooth ? 'smooth' : 'auto'
@@ -162,68 +118,14 @@ export default function MessagesPage() {
     }, 100);
   };
 
-  const fetchUser = async () => {
+  const fetchUserAndProfiles = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
-  };
-
-  const fetchConversations = async () => {
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get all messages involving the current user
-      const { data: messagesData, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, job_title),
-          recipient:profiles!messages_recipient_id_fkey(id, username, full_name, avatar_url, job_title)
-        `)
-        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Group messages by conversation partner
-      const conversationsMap = new Map<string, Conversation>();
-
-      messagesData?.forEach((msg: any) => {
-        const isReceived = msg.recipient_id === user.id;
-        const otherUser = isReceived ? msg.sender : msg.recipient;
-
-        if (!otherUser) return;
-
-        const existingConv = conversationsMap.get(otherUser.id);
-
-        if (!existingConv || new Date(msg.created_at) > new Date(existingConv.lastMessage.created_at)) {
-          const unreadCount = messagesData?.filter(
-            (m: any) => m.sender_id === otherUser.id && m.recipient_id === user.id && !m.is_read
-          ).length || 0;
-
-          conversationsMap.set(otherUser.id, {
-            otherUser,
-            lastMessage: msg,
-            unreadCount
-          });
-        }
-      });
-
-      setConversations(Array.from(conversationsMap.values()));
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load conversations',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
-    }
+    fetchAllUsers();
   };
 
   const fetchMessages = async (otherUserId: string) => {
+    setLoadingMessages(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -239,23 +141,14 @@ export default function MessagesPage() {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-
       setMessages(data || []);
 
-      // Mark messages as read
-      const unreadMessages = data?.filter(
-        (msg: any) => msg.recipient_id === user.id && !msg.is_read
-      );
-
+      const unreadMessages = data?.filter((msg) => msg.recipient_id === user.id && !msg.is_read);
       if (unreadMessages && unreadMessages.length > 0) {
-        const { error: updateError } = await supabase
+        await supabase
           .from('messages')
           .update({ is_read: true, read_at: new Date().toISOString() })
-          .in('id', unreadMessages.map((msg: any) => msg.id));
-
-        if (!updateError) {
-          fetchConversations(); // Refresh to update unread counts
-        }
+          .in('id', unreadMessages.map((msg) => msg.id));
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -264,6 +157,8 @@ export default function MessagesPage() {
         description: 'Failed to load messages',
         variant: 'destructive'
       });
+    } finally {
+        setLoadingMessages(false);
     }
   };
 
@@ -282,41 +177,21 @@ export default function MessagesPage() {
   };
 
   const handleRealtimeMessage = async (payload: any) => {
-    console.log('Processing realtime payload:', payload);
-
     if (payload.eventType === 'INSERT') {
-      const newMsg = payload.new;
-      console.log('New message inserted:', newMsg);
-
-      // If message is for current conversation, add it
+      const newMsg = payload.new as Message;
       if (selectedConversation &&
         ((newMsg.sender_id === selectedConversation.id && newMsg.recipient_id === user?.id) ||
           (newMsg.sender_id === user?.id && newMsg.recipient_id === selectedConversation.id))) {
-
-        // Fetch the complete message with profile data
-        const { data, error } = await supabase
+        
+        const { data } = await supabase
           .from('messages')
-          .select(`
-            *,
-            sender:profiles!messages_sender_id_fkey(id, username, full_name, avatar_url, job_title),
-            recipient:profiles!messages_recipient_id_fkey(id, username, full_name, avatar_url, job_title)
-          `)
+          .select(`*, sender:profiles!messages_sender_id_fkey(*), recipient:profiles!messages_recipient_id_fkey(*)`)
           .eq('id', newMsg.id)
           .single();
-
-        if (data && !error) {
-          console.log('Adding message to conversation:', data);
-          setMessages(prev => {
-            // Prevent duplicates
-            if (prev.some(msg => msg.id === data.id)) {
-              return prev;
-            }
-            return [...prev, data];
-          });
-
-          // Mark as read if it's for us
+        
+        if (data) {
+          setMessages(prev => [...prev, data]);
           if (data.recipient_id === user?.id && !data.is_read) {
-            console.log('Auto-marking message as read');
             await supabase
               .from('messages')
               .update({ is_read: true, read_at: new Date().toISOString() })
@@ -324,29 +199,18 @@ export default function MessagesPage() {
           }
         }
       }
-
-      // Refresh conversations list
-      console.log('Refreshing conversations list');
-      fetchConversations();
     } else if (payload.eventType === 'UPDATE') {
-      console.log('Message updated:', payload.new);
-      // Update message read status
       setMessages(prev =>
         prev.map(msg =>
           msg.id === payload.new.id ? { ...msg, ...payload.new } : msg
         )
       );
-      // Refresh to update unread counts
-      fetchConversations();
     }
   };
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !user) return;
-
     setSending(true);
-    
-    // OPTIONAL: Force scroll down immediately so user sees their input area clearly
     scrollToBottom(true); 
 
     try {
@@ -359,10 +223,7 @@ export default function MessagesPage() {
         });
 
       if (error) throw error;
-
       setNewMessage('');
-      // The Realtime subscription will trigger the useEffect to scroll again 
-      // once the message is actually added to the list, ensuring it stays at bottom.
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -402,7 +263,7 @@ export default function MessagesPage() {
     conv.otherUser.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (loading) {
+  if (loadingConversations) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -576,59 +437,65 @@ export default function MessagesPage() {
 
               {/* Messages Area Wrapper */}
               <div className="flex-1 relative min-h-0 flex flex-col">
-                <div
-                  ref={scrollContainerRef}
-                  onScroll={handleScroll}
-                  className="flex-1 p-4 overflow-y-auto scrollbar-gray"
-                >
-                  <div className="space-y-4">
-                    {messages.map((message) => {
-                      const isOwn = message.sender_id === user?.id;
-                      return (
-                        <div
-                          key={message.id}
-                          className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div className={`flex gap-2 max-w-[70%] ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
-                            {!isOwn && (
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={selectedConversation.avatar_url || undefined} />
-                                <AvatarFallback className="text-xs">
-                                  {selectedConversation.username.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                            )}
-                            <div>
-                              <div
-                                className={`rounded-2xl px-4 py-2 ${isOwn
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted'
-                                  }`}
-                              >
-                                <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-                              </div>
-                              <div className={`flex items-center gap-1 mt-1 px-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-                                </span>
-                                {isOwn && (
-                                  <span className="text-muted-foreground">
-                                    {message.is_read ? (
-                                      <CheckCheck className="h-3 w-3 text-primary" />
-                                    ) : (
-                                      <Check className="h-3 w-3" />
-                                    )}
-                                  </span>
+                 {loadingMessages ? (
+                    <div className="flex-1 flex items-center justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                 ) : (
+                    <div
+                        ref={scrollContainerRef}
+                        onScroll={handleScroll}
+                        className="flex-1 p-4 overflow-y-auto scrollbar-gray"
+                    >
+                    <div className="space-y-4">
+                        {messages.map((message) => {
+                        const isOwn = message.sender_id === user?.id;
+                        return (
+                            <div
+                            key={message.id}
+                            className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                            >
+                            <div className={`flex gap-2 max-w-[70%] ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                                {!isOwn && (
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={selectedConversation.avatar_url || undefined} />
+                                    <AvatarFallback className="text-xs">
+                                    {selectedConversation.username.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                </Avatar>
                                 )}
-                              </div>
+                                <div>
+                                <div
+                                    className={`rounded-2xl px-4 py-2 ${isOwn
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted'
+                                    }`}
+                                >
+                                    <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                                </div>
+                                <div className={`flex items-center gap-1 mt-1 px-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                                    <span className="text-xs text-muted-foreground">
+                                    {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                                    </span>
+                                    {isOwn && (
+                                    <span className="text-muted-foreground">
+                                        {message.is_read ? (
+                                        <CheckCheck className="h-3 w-3 text-primary" />
+                                        ) : (
+                                        <Check className="h-3 w-3" />
+                                        )}
+                                    </span>
+                                    )}
+                                </div>
+                                </div>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div ref={messagesEndRef} />
-                  </div>
-                </div>
+                            </div>
+                        );
+                        })}
+                        <div ref={messagesEndRef} />
+                    </div>
+                    </div>
+                 )}
 
                 {/* Scroll to Bottom Button - Now floated correctly */}
                 {showScrollButton && (
@@ -683,4 +550,3 @@ export default function MessagesPage() {
     </div>
   );
 }
-

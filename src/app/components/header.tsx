@@ -32,6 +32,7 @@ import { UserNav } from './user-nav';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useNotifications } from '@/hooks/use-notifications';
+import { useMessages } from '@/hooks/use-messages';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { sampleUserProfile } from '@/lib/data';
@@ -44,8 +45,8 @@ const topLinks = [
     { href: '/', label: 'Home', icon: Home },
     { href: '/forums', label: 'My Network', icon: Network },
     { href: '/jobs', label: 'Jobs', icon: Briefcase },
-    { href: '/messages', label: 'Messaging', icon: MessageSquare },
-    { href: '/notifications', label: 'Notifications', icon: Bell, count: 0 },
+    { href: '/messages', label: 'Messaging', icon: MessageSquare, countKey: 'messages' },
+    { href: '/notifications', label: 'Notifications', icon: Bell, countKey: 'notifications' },
 ];
 
 const secondaryLinks = [
@@ -58,7 +59,7 @@ const secondaryLinks = [
 const allLinks = [...topLinks, ...secondaryLinks];
 
 
-function DesktopNav({ user, unreadCount }: { user: SupabaseUser | null, unreadCount: number }) {
+function DesktopNav({ user, counts }: { user: SupabaseUser | null, counts: { notifications: number, messages: number } }) {
     const pathname = usePathname();
     const isAuthenticated = !!user;
 
@@ -87,7 +88,7 @@ function DesktopNav({ user, unreadCount }: { user: SupabaseUser | null, unreadCo
                             <div className="flex items-center space-x-1">
                                 {allLinks.map((link) => {
                                     const isActive = pathname === link.href;
-                                    const count = link.label === 'Notifications' ? unreadCount : 0;
+                                    const count = link.countKey ? counts[link.countKey as keyof typeof counts] : 0;
 
                                     return (
                                         <Link
@@ -138,26 +139,11 @@ function DesktopNav({ user, unreadCount }: { user: SupabaseUser | null, unreadCo
     )
 }
 
-function MobileNav({ user, unreadCount }: { user: SupabaseUser | null, unreadCount: number }) {
-    const supabase = createClient(); // This will be removed if user state is managed by Header
+function MobileNav({ user, counts }: { user: SupabaseUser | null, counts: { notifications: number, messages: number } }) {
+    const supabase = createClient();
     const router = useRouter();
     const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
     const pathname = usePathname();
-
-    // This useEffect will be removed if user state is managed by Header
-    // useEffect(() => {
-    //     const getUser = async () => {
-    //         const { data: { user } } = await supabase.auth.getUser();
-    //         setUser(user);
-    //     };
-    //     getUser();
-
-    //     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-    //         setUser(session?.user ?? null);
-    //     });
-
-    //     return () => subscription.unsubscribe();
-    // }, [supabase]);
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
@@ -204,7 +190,7 @@ function MobileNav({ user, unreadCount }: { user: SupabaseUser | null, unreadCou
                                         <h3 className="px-2 text-sm font-semibold text-muted-foreground">Navigation</h3>
                                         {topLinks.map(link => {
                                             const isActive = pathname === link.href;
-                                            const count = link.label === 'Notifications' ? unreadCount : 0;
+                                            const count = link.countKey ? counts[link.countKey as keyof typeof counts] : 0;
 
                                             return (
                                                 <SheetClose asChild key={link.href}>
@@ -267,7 +253,16 @@ function MobileNav({ user, unreadCount }: { user: SupabaseUser | null, unreadCou
 
                     <div className="flex items-center gap-2">
                         <Button variant="ghost" size="icon"><Search className="h-6 w-6" /></Button>
-                        <Button variant="ghost" size="icon"><MessageSquare className="h-6 w-6" /></Button>
+                        <Link href="/messages">
+                            <Button variant="ghost" size="icon" className="relative">
+                                <MessageSquare className="h-6 w-6" />
+                                {counts.messages > 0 && (
+                                     <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                                        {counts.messages > 9 ? '9+' : counts.messages}
+                                    </span>
+                                )}
+                            </Button>
+                        </Link>
                     </div>
                 </div>
             </header>
@@ -276,16 +271,22 @@ function MobileNav({ user, unreadCount }: { user: SupabaseUser | null, unreadCou
                 <div className="grid h-16 grid-cols-5 items-center justify-items-center">
                     {topLinks.map((link) => {
                         const isActive = pathname === link.href;
+                        const count = link.countKey ? counts[link.countKey as keyof typeof counts] : 0;
                         return (
                             <Link
                                 key={link.href}
                                 href={link.href}
                                 className={cn(
-                                    'flex flex-col items-center justify-center gap-1 rounded-md p-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-full h-full',
+                                    'flex flex-col items-center justify-center gap-1 rounded-md p-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground w-full h-full relative',
                                     isActive && 'text-primary bg-accent/50'
                                 )}
                             >
                                 <link.icon className="h-6 w-6" />
+                                {count > 0 && (
+                                    <span className="absolute top-2 right-4 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                                        {count > 9 ? '9+' : count}
+                                    </span>
+                                )}
                                 <span className="truncate sr-only">{link.label}</span>
                             </Link>
                         )
@@ -300,7 +301,13 @@ export function Header() {
     const isMobile = useIsMobile();
     const [user, setUser] = useState<SupabaseUser | null>(null);
     const supabase = createClient();
-    const { unreadCount } = useNotifications();
+    const { unreadCount: unreadNotifications } = useNotifications();
+    const { unreadCount: unreadMessages } = useMessages();
+    
+    const counts = {
+        notifications: unreadNotifications,
+        messages: unreadMessages
+    };
 
     useEffect(() => {
         const getUser = async () => {
@@ -320,5 +327,5 @@ export function Header() {
         return <div className="h-16 w-full hidden md:block" />;
     }
 
-    return isMobile ? <MobileNav user={user} unreadCount={unreadCount} /> : <DesktopNav user={user} unreadCount={unreadCount} />;
+    return isMobile ? <MobileNav user={user} counts={counts} /> : <DesktopNav user={user} counts={counts} />;
 }

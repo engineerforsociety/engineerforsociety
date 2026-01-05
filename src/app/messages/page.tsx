@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -127,8 +128,12 @@ export default function MessagesPage() {
   }, [selectedConversation]);
 
   useEffect(() => {
-    // Instant scroll on new messages to prevent layout jump issues
-    scrollToBottom(false);
+    // When messages change or conversation changes, scroll to bottom.
+    // We use 'false' (instant jump) for conversation changes to avoid 
+    // seeing a fast scroll animation when switching users.
+    // We use 'true' (smooth) when just a message is added.
+    const shouldSmooth = messages.length > 0;
+    scrollToBottom(shouldSmooth);
   }, [messages, selectedConversation]);
 
   const handleScroll = () => {
@@ -140,12 +145,18 @@ export default function MessagesPage() {
   };
 
   const scrollToBottom = (smooth = true) => {
-    // Small timeout to ensure DOM is ready
+    // We use a requestAnimationFrame or simple timeout to ensure the DOM 
+    // has finished painting the new message height before we scroll.
     setTimeout(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({
-          behavior: smooth ? 'smooth' : 'auto',
-          block: 'end'
+      if (scrollContainerRef.current) {
+        const scrollableNode = scrollContainerRef.current;
+        
+        // Calculate the maximum scroll top value
+        const maxScrollTop = scrollableNode.scrollHeight - scrollableNode.clientHeight;
+        
+        scrollableNode.scrollTo({
+          top: maxScrollTop,
+          behavior: smooth ? 'smooth' : 'auto'
         });
       }
     }, 100);
@@ -334,6 +345,10 @@ export default function MessagesPage() {
     if (!newMessage.trim() || !selectedConversation || !user) return;
 
     setSending(true);
+    
+    // OPTIONAL: Force scroll down immediately so user sees their input area clearly
+    scrollToBottom(true); 
+
     try {
       const { error } = await supabase
         .from('messages')
@@ -346,6 +361,8 @@ export default function MessagesPage() {
       if (error) throw error;
 
       setNewMessage('');
+      // The Realtime subscription will trigger the useEffect to scroll again 
+      // once the message is actually added to the list, ensuring it stays at bottom.
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -666,3 +683,4 @@ export default function MessagesPage() {
     </div>
   );
 }
+

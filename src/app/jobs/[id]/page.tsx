@@ -3,11 +3,12 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { notFound } from 'next/navigation';
+import { notFound, useRouter } from 'next/navigation';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Briefcase, MapPin, Building, Clock, Loader2, Globe, ServerCrash, ArrowLeft, Send, Upload, FileText, CheckCircle } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Briefcase, MapPin, Building, Clock, Loader2, Globe, ServerCrash, ArrowLeft, Send, Upload, FileText, CheckCircle, Edit, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -15,9 +16,11 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { User } from '@supabase/supabase-js';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EditJobModal } from '@/app/components/edit-job-modal';
 
 type JobPosting = {
   id: string;
@@ -36,6 +39,10 @@ type JobPosting = {
   application_email: string | null;
   posted_by: string;
   created_at: string;
+  profiles: {
+    full_name: string;
+    avatar_url: string;
+  } | null;
 };
 
 type JobApplication = {
@@ -50,12 +57,14 @@ export default function JobDetailsPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const supabase = createClient();
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     const fetchJobAndUser = async () => {
@@ -65,14 +74,20 @@ export default function JobDetailsPage({ params }: { params: { id: string } }) {
 
         const { data: jobData, error: jobError } = await supabase
           .from('job_postings')
-          .select('*')
+          .select(`
+            *,
+            profiles (
+              full_name,
+              avatar_url
+            )
+          `)
           .eq('id', params.id)
           .single();
 
         if (jobError || !jobData) {
           throw new Error('Job not found');
         }
-        setJob(jobData);
+        setJob(jobData as JobPosting);
 
         if (userData.user) {
             const { data: applicationData, error: applicationError } = await supabase
@@ -154,6 +169,25 @@ export default function JobDetailsPage({ params }: { params: { id: string } }) {
     }
   }
 
+  const handleDelete = async () => {
+    if (!job) return;
+
+    try {
+        const { error } = await supabase
+            .from('job_postings')
+            .delete()
+            .eq('id', job.id);
+
+        if (error) throw error;
+        
+        toast({ title: "Job Deleted", description: "The job posting has been successfully removed." });
+        router.push('/jobs');
+        router.refresh();
+    } catch (error: any) {
+        toast({ title: "Error", description: error.message || "Failed to delete job.", variant: "destructive"});
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
   }
@@ -174,21 +208,50 @@ export default function JobDetailsPage({ params }: { params: { id: string } }) {
   }
   
   const formatTime = (date: string) => formatDistanceToNow(new Date(date), { addSuffix: true });
+  const isOwner = user?.id === job.posted_by;
 
   return (
     <>
     <div className="max-w-4xl mx-auto py-8 px-4">
-      <div className="mb-6">
+      <div className="mb-6 flex justify-between items-center">
         <Button variant="ghost" asChild>
             <Link href="/jobs" className="text-muted-foreground">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to all jobs
             </Link>
         </Button>
+        {isOwner && (
+            <div className='flex gap-2'>
+                 <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                </Button>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete this job posting.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
+        )}
       </div>
 
       <Card className="overflow-hidden">
-        <CardHeader>
+        <CardHeader className="space-y-6">
             <div className="flex items-start gap-4">
               <div className="relative h-16 w-16 flex-shrink-0">
                 {job.company_logo_url ? (
@@ -204,6 +267,18 @@ export default function JobDetailsPage({ params }: { params: { id: string } }) {
                 <CardDescription className="text-lg font-medium text-foreground">{job.company_name}</CardDescription>
               </div>
             </div>
+            {job.profiles && (
+                <div className="flex items-center gap-3 border-t pt-4">
+                     <Avatar className="h-10 w-10">
+                        <AvatarImage src={job.profiles.avatar_url} />
+                        <AvatarFallback>{job.profiles.full_name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                        <p className="text-sm font-semibold text-muted-foreground">Posted by</p>
+                        <p className="font-semibold">{job.profiles.full_name}</p>
+                    </div>
+                </div>
+            )}
         </CardHeader>
         <CardContent className="space-y-6">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-muted-foreground">
@@ -296,6 +371,13 @@ export default function JobDetailsPage({ params }: { params: { id: string } }) {
             </DialogFooter>
         </DialogContent>
     </Dialog>
+    {isOwner && job && (
+        <EditJobModal
+            isOpen={isEditModalOpen}
+            onOpenChange={setIsEditModalOpen}
+            job={job}
+        />
+    )}
     </>
   );
 }

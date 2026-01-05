@@ -41,7 +41,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { sampleTrendingTopics, sampleUserProfile } from '@/lib/data';
+import { sampleTrendingTopics } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
@@ -51,12 +51,12 @@ import { LandingHero } from '@/app/components/landing-hero';
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { Logo } from '@/app/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { SharePostModal } from '@/app/components/share-post-modal';
 import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
+import { formatDistanceToNow } from 'date-fns';
 
 type FeedPost = {
   id: string;
@@ -167,7 +167,7 @@ function RecentActivityCard() {
   )
 }
 
-function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; currentUserId?: string; formatDate: (date: string) => string }) {
+function PostCard({ post, currentUserId }: { post: FeedPost; currentUserId?: string; }) {
   const supabase = createClient();
   const { toast } = useToast();
   const router = useRouter();
@@ -177,6 +177,14 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
   const [likeCount, setLikeCount] = useState(post.like_count || 0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  const formatDate = (dateString: string) => {
+    try {
+      return `${formatDistanceToNow(new Date(dateString))} ago`;
+    } catch (error) {
+      return 'a while ago';
+    }
+  };
 
   const handleLike = async () => {
     if (!currentUserId) {
@@ -753,18 +761,6 @@ export default function Home() {
     };
   }, [user, supabase]);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 48) return 'Yesterday';
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-    return date.toLocaleDateString();
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -777,7 +773,7 @@ export default function Home() {
     return <LandingHero />;
   }
 
-  const displayName = user?.user_metadata?.full_name || user?.email || sampleUserProfile.name;
+  const displayName = user?.user_metadata?.full_name || user?.email || 'User';
   const avatarUrl = user?.user_metadata?.avatar_url || profilePic?.imageUrl;
   const isHomePage = pathname === '/';
 
@@ -849,7 +845,7 @@ export default function Home() {
 
                           return uniquePosts.map((post) => (
                             <div className="px-4" key={post.id}>
-                              <PostCard post={post} currentUserId={user?.id} formatDate={formatDate} />
+                              <PostCard post={post} currentUserId={user?.id} />
                             </div>
                           ));
                         })()}

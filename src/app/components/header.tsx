@@ -24,6 +24,8 @@ import {
     CreditCard,
     Settings,
     LogOut,
+    ShieldCheck,
+    Bookmark,
 } from 'lucide-react';
 import { Logo } from './icons';
 import { cn } from '@/lib/utils';
@@ -75,7 +77,7 @@ function DesktopNav({ user, counts }: { user: SupabaseUser | null, counts: { not
             <div className="container flex h-16 items-center px-4 sm:px-6 lg:px-8 max-w-screen-2xl mx-auto">
                 <div className="flex items-center gap-4">
                     <Link href="/" className="flex items-center gap-2">
-                        <Logo className="h-8 w-8 text-primary" />
+                        <Logo className="h-12 w-auto min-w-[48px]" />
                     </Link>
                     {isAuthenticated && (
                         <div className="relative">
@@ -231,6 +233,28 @@ function MobileNav({ user, counts }: { user: SupabaseUser | null, counts: { noti
                                             )
                                         })}
                                     </div>
+                                    <Separator />
+                                    <div className="p-4 space-y-2">
+                                        <h3 className="px-2 text-sm font-semibold text-muted-foreground">Manage</h3>
+                                        <SheetClose asChild>
+                                            <Link href="/profile/activity" className={cn("flex items-center gap-3 p-2 rounded-md hover:bg-accent", pathname === '/profile/activity' && 'bg-accent')}>
+                                                <GanttChartSquare className={cn("h-5 w-5 text-muted-foreground", pathname === '/profile/activity' && 'text-primary')} />
+                                                <span className={cn("font-medium", pathname === '/profile/activity' && "text-primary")}>Posts & Activity</span>
+                                            </Link>
+                                        </SheetClose>
+                                        <SheetClose asChild>
+                                            <Link href="/profile/saved" className={cn("flex items-center gap-3 p-2 rounded-md hover:bg-accent", pathname === '/profile/saved' && 'bg-accent')}>
+                                                <Bookmark className={cn("h-5 w-5 text-muted-foreground", pathname === '/profile/saved' && 'text-primary')} />
+                                                <span className={cn("font-medium", pathname === '/profile/saved' && "text-primary")}>Saved posts</span>
+                                            </Link>
+                                        </SheetClose>
+                                        <SheetClose asChild>
+                                            <Link href="/jobs/manage" className={cn("flex items-center gap-3 p-2 rounded-md hover:bg-accent", pathname === '/jobs/manage' && 'bg-accent')}>
+                                                <ShieldCheck className={cn("h-5 w-5 text-muted-foreground", pathname === '/jobs/manage' && 'text-primary')} />
+                                                <span className={cn("font-medium", pathname === '/jobs/manage' && "text-primary")}>Job Posting Account</span>
+                                            </Link>
+                                        </SheetClose>
+                                    </div>
                                 </nav>
                                 <Separator />
                                 <div className="p-4 space-y-2">
@@ -255,7 +279,7 @@ function MobileNav({ user, counts }: { user: SupabaseUser | null, counts: { noti
                     </Sheet>
 
                     <Link href="/" className="mx-auto">
-                        <Logo className="h-8 w-8 text-primary" />
+                        <Logo className="h-10 w-auto" />
                     </Link>
 
                     <div className="flex items-center gap-2">

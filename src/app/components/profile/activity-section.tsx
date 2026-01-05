@@ -7,13 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { createClient } from '@/lib/supabase/client';
-import { 
-  MessageSquare, 
-  Heart, 
-  Share2, 
-  Repeat2, 
-  Briefcase, 
-  GraduationCap, 
+import {
+  MessageSquare,
+  Heart,
+  Share2,
+  Repeat2,
+  Briefcase,
+  GraduationCap,
   FileText,
   MoreHorizontal
 } from 'lucide-react';
@@ -135,7 +135,7 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
         <CardHeader>
           <CardTitle className="text-xl font-bold">Activity</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent key="loading-content">
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
@@ -155,7 +155,7 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
             </Badge>
           )}
         </div>
-        
+
         {/* Tabs */}
         <div className="flex gap-2 mt-4 border-b">
           <Button
@@ -184,10 +184,10 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
           </Button>
         </div>
       </CardHeader>
-      
-      <CardContent className="space-y-4">
+
+      <CardContent className="space-y-4" key="activity-content">
         {activities.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12" key="no-activity">
             <p className="text-muted-foreground">No activities yet.</p>
             {isOwnProfile && (
               <p className="text-sm text-muted-foreground mt-2">
@@ -205,7 +205,7 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
                     {(activity.user_name || 'U').substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                
+
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
                     {getActivityIcon(activity.activity_type)}
@@ -217,11 +217,11 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
                       {formatDate(activity.created_at)}
                     </span>
                   </div>
-                  
+
                   {/* Post Content */}
                   {activity.post_title && (
                     <div className="bg-muted/50 rounded-lg p-3 mt-2 border-l-4 border-primary">
-                      <Link 
+                      <Link
                         href={`/forums/post/${activity.post_slug || activity.id}`}
                         className="hover:underline"
                       >
@@ -234,18 +234,18 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
                       )}
                     </div>
                   )}
-                  
+
                   {/* Comment Content */}
                   {activity.comment_content && (
                     <div className="bg-muted/50 rounded-lg p-3 mt-2 border-l-4 border-green-500">
                       <p className="text-sm">{activity.comment_content}</p>
                     </div>
                   )}
-                  
+
                   {/* Activity Data */}
                   {activity.activity_data && !activity.post_title && !activity.comment_content && (
                     <div className="text-sm text-muted-foreground mt-1">
-                      {typeof activity.activity_data === 'object' 
+                      {typeof activity.activity_data === 'object'
                         ? JSON.stringify(activity.activity_data)
                         : activity.activity_data}
                     </div>

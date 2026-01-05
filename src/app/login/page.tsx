@@ -21,8 +21,8 @@ export default function LoginPage() {
         <div className="flex min-h-screen items-center justify-center p-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <div className="flex justify-center mb-4">
-                        <Logo className="h-12 w-12 text-primary" />
+                    <div className="flex justify-center mb-6">
+                        <Logo className="h-20 w-auto" />
                     </div>
                     <CardTitle className="text-2xl font-bold">Welcome to EFS</CardTitle>
                     <CardDescription>

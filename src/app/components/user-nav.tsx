@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, Settings, ChevronDown, User, GanttChartSquare, CreditCard, ShieldCheck, HelpCircle, Languages } from 'lucide-react';
+import { LogOut, Settings, ChevronDown, User, GanttChartSquare, CreditCard, ShieldCheck, HelpCircle, Languages, Bookmark } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -92,9 +92,17 @@ export function UserNav({ user }: { user: SupabaseUser | null }) {
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
                         <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-2">Manage</DropdownMenuLabel>
-                        <DropdownMenuItem>
-                            <GanttChartSquare className="mr-2 h-4 w-4" />
-                            <span>Posts & Activity</span>
+                        <DropdownMenuItem asChild>
+                            <Link href="/profile/activity" className="flex items-center w-full">
+                                <GanttChartSquare className="mr-2 h-4 w-4" />
+                                <span>Posts & Activity</span>
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href="/profile/saved" className="flex items-center w-full">
+                                <Bookmark className="mr-2 h-4 w-4" />
+                                <span>Saved posts</span>
+                            </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link href="/jobs/manage" className="flex items-center w-full">

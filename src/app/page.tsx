@@ -21,8 +21,13 @@ import {
   Podcast,
   BookOpen,
   FilePen,
+  Edit,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
+import { EditPostModal } from '@/app/components/edit-post-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,7 +53,7 @@ import { Separator } from '@/components/ui/separator';
 import { CreatePostModal } from '@/app/components/create-post-modal';
 import { PostJobModal } from '@/app/components/post-job-modal';
 import { LandingHero } from '@/app/components/landing-hero';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { Logo } from '@/app/components/icons';
@@ -64,6 +69,9 @@ type FeedPost = {
   content: string;
   tags: string[];
   created_at: string;
+  view_count: number;
+  is_pinned: boolean;
+  slug: string;
   author_id: string;
   author_name: string;
   author_avatar: string;
@@ -134,10 +142,10 @@ function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
       </CardContent>
       <Separator />
       <CardContent className="p-4">
-        <div className="flex items-center gap-2 hover:bg-muted p-2 rounded-md cursor-pointer">
+        <Link href="/profile/saved" className="flex items-center gap-2 hover:bg-muted p-2 rounded-md cursor-pointer transition-colors">
           <Bookmark className="h-4 w-4 text-muted-foreground" />
           <span className="font-semibold">Saved Items</span>
-        </div>
+        </Link>
       </CardContent>
     </Card>
   )
@@ -167,7 +175,7 @@ function RecentActivityCard() {
   )
 }
 
-function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; currentUserId?: string; formatDate: (date: string) => string }) {
+function PostCard({ post, currentUserId, formatDate, onRefresh }: { post: FeedPost; currentUserId?: string; formatDate: (date: string) => string; onRefresh?: () => void }) {
   const supabase = createClient();
   const { toast } = useToast();
   const router = useRouter();
@@ -177,8 +185,55 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
   const [likeCount, setLikeCount] = useState(post.like_count || 0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCommentsExpanded, setIsCommentsExpanded] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [commentCount, setCommentCount] = useState(post.comment_count || 0);
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
 
   const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (currentUserId) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', currentUserId)
+          .single();
+        setCurrentUserProfile(data);
+      }
+    };
+    fetchProfile();
+  }, [currentUserId, supabase]);
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this post? This cannot be undone.')) return;
+
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from('forum_posts')
+        .delete()
+        .eq('id', post.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Post Deleted', description: 'Your post has been removed.' });
+      if (onRefresh) {
+        onRefresh();
+      } else {
+        router.refresh();
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to delete post.', variant: 'destructive' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleLike = async () => {
     if (!currentUserId) {
@@ -422,6 +477,95 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
     }
   };
 
+  const fetchComments = async () => {
+    if (comments.length > 0) return;
+    setIsLoadingComments(true);
+    try {
+      const { data, error } = await supabase
+        .from('forum_comments')
+        .select(`
+          id,
+          content,
+          created_at,
+          author_id,
+          profiles (
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('post_id', post.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setComments(data || []);
+    } catch (error: any) {
+      console.error('Error fetching comments:', error);
+    } finally {
+      setIsLoadingComments(false);
+    }
+  };
+
+  const handleToggleComments = () => {
+    const newState = !isCommentsExpanded;
+    setIsCommentsExpanded(newState);
+    if (newState) {
+      fetchComments();
+    }
+  };
+
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUserId) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to comment.",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!newComment.trim()) return;
+
+    setIsSubmittingComment(true);
+    try {
+      const { data, error } = await supabase
+        .from('forum_comments')
+        .insert({
+          post_id: post.id,
+          author_id: currentUserId,
+          content: newComment.trim()
+        })
+        .select(`
+          id,
+          content,
+          created_at,
+          author_id,
+          profiles (
+            full_name,
+            avatar_url
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+
+      setComments([...comments, data]);
+      setNewComment('');
+      setCommentCount(prev => prev + 1);
+      toast({
+        title: "Comment added!",
+        description: "Your thought has been shared."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to post comment.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
   const handleAuthorClick = (e: React.MouseEvent) => {
     e.preventDefault();
     // Navigate to profile - for now using /profile, but ideally should be /profile/[userId]
@@ -479,6 +623,23 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
                   Unfollow
                 </DropdownMenuItem>
               )}
+              {currentUserId === post.author_id && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setIsEditModalOpen(true)} disabled={isProcessing}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Post
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleDelete}
+                    disabled={isProcessing}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Post
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -496,9 +657,11 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
           if (isTitleDerived) {
             return (
               <div className="space-y-4">
-                <p className="text-foreground text-sm sm:text-base whitespace-pre-wrap">
-                  {displayContent}
-                </p>
+                <Link href={`/forums/post/${post.slug}`} className="block group">
+                  <p className="text-foreground text-sm sm:text-base whitespace-pre-wrap group-hover:text-primary transition-colors">
+                    {displayContent}
+                  </p>
+                </Link>
                 {post.content.length > maxLength && (
                   <button
                     onClick={() => setIsExpanded(!isExpanded)}
@@ -513,7 +676,9 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
 
           return (
             <>
-              <h3 className="text-lg font-bold mb-2">{post.title}</h3>
+              <Link href={`/forums/post/${post.slug}`} className="block group">
+                <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{post.title}</h3>
+              </Link>
               <div className="space-y-4">
                 <p className="text-muted-foreground text-sm whitespace-pre-wrap">
                   {displayContent}
@@ -552,8 +717,13 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
           >
             <Heart className={`h-5 w-5 ${isLiked ? 'fill-current' : ''}`} /> {likeCount}
           </Button>
-          <Button variant="ghost" size="sm" className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" /> {post.comment_count || 0}
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn("flex items-center gap-2", isCommentsExpanded && "text-primary")}
+            onClick={handleToggleComments}
+          >
+            <MessageSquare className="h-5 w-5" /> {commentCount}
           </Button>
         </div>
         <div className='flex gap-1'>
@@ -577,6 +747,72 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
           </Button>
         </div>
       </CardFooter>
+
+      {isCommentsExpanded && (
+        <div className="border-t p-4 space-y-4 bg-muted/20">
+          {currentUserId ? (
+            <form onSubmit={handleCommentSubmit} className="flex gap-3">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={currentUserProfile?.avatar_url} />
+                <AvatarFallback>{(currentUserProfile?.full_name || 'ME').substring(0, 2)}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 space-y-2">
+                <Textarea
+                  placeholder="Add a comment..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  className="min-h-[80px] resize-none text-sm"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={!newComment.trim() || isSubmittingComment}
+                  >
+                    {isSubmittingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Post'}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          ) : (
+            <div className="text-center py-2">
+              <p className="text-sm text-muted-foreground">Please sign in to comment.</p>
+            </div>
+          )}
+
+          <div className="space-y-4 pt-2">
+            {isLoadingComments ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : comments.length === 0 ? (
+              <p className="text-sm text-center text-muted-foreground py-2">No comments yet. Be the first to comment!</p>
+            ) : (
+              comments.map((comment: any) => (
+                <div key={comment.id} className="flex gap-3">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={comment.profiles?.avatar_url} />
+                    <AvatarFallback>{(comment.profiles?.full_name || 'U').substring(0, 2)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="bg-muted/50 p-3 rounded-2xl rounded-tl-none">
+                      <p className="text-xs font-bold mb-1">{comment.profiles?.full_name || 'Anonymous'}</p>
+                      <p className="text-sm text-foreground/90 whitespace-pre-wrap">{comment.content}</p>
+                    </div>
+                    <div className="flex gap-3 mt-1 ml-1">
+                      <p className="text-[10px] text-muted-foreground">
+                        {formatDate(comment.created_at)}
+                      </p>
+                      <button className="text-[10px] font-bold text-muted-foreground hover:text-primary">Like</button>
+                      <button className="text-[10px] font-bold text-muted-foreground hover:text-primary">Reply</button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
       {
         currentUserId && (
           <SharePostModal
@@ -585,6 +821,24 @@ function PostCard({ post, currentUserId, formatDate }: { post: FeedPost; current
             postId={post.id}
             currentUserId={currentUserId}
             onRepost={handleRepost}
+          />
+        )
+      }
+      {
+        currentUserId === post.author_id && (
+          <EditPostModal
+            isOpen={isEditModalOpen}
+            onOpenChange={(open) => {
+              setIsEditModalOpen(open);
+              if (!open) {
+                window.location.reload();
+              }
+            }}
+            post={{
+              id: post.id,
+              content: post.content,
+              title: post.title
+            }}
           />
         )
       }
@@ -694,6 +948,37 @@ export default function Home() {
   const supabase = createClient();
   const pathname = usePathname();
 
+  const fetchPosts = useCallback(async () => {
+    if (!user) return;
+
+    setLoadingPosts(true);
+    try {
+      const { data, error } = await supabase
+        .from('feed_posts_view')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+
+      if (data) {
+        const seenIds = new Set<string>();
+        const uniquePosts = data.filter((post: any) => {
+          if (!post.id || seenIds.has(post.id)) {
+            return false;
+          }
+          seenIds.add(post.id);
+          return true;
+        });
+        setPosts(uniquePosts);
+      }
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+    } finally {
+      setLoadingPosts(false);
+    }
+  }, [user, supabase]);
+
   useEffect(() => {
     const getUserAndProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -723,61 +1008,23 @@ export default function Home() {
   }, [supabase]);
 
   useEffect(() => {
-    let isMounted = true;
-    let channel: any = null;
-
-    const fetchPosts = async () => {
-      if (!user || !isMounted) return;
-
-      setLoadingPosts(true);
-      try {
-        const { data, error } = await supabase
-          .from('feed_posts_view')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        if (error) throw error;
-
-        // Remove duplicates based on post id - more robust
-        if (data && isMounted) {
-          const seenIds = new Set<string>();
-          const uniquePosts = data.filter((post: any) => {
-            if (!post.id || seenIds.has(post.id)) {
-              return false;
-            }
-            seenIds.add(post.id);
-            return true;
-          });
-          setPosts(uniquePosts);
-        }
-      } catch (error) {
-        console.error('Error fetching posts:', error);
-      } finally {
-        if (isMounted) {
-          setLoadingPosts(false);
-        }
-      }
-    };
-
-    fetchPosts();
+    if (user) {
+      fetchPosts();
+    }
 
     // Subscribe to new posts
-    channel = supabase
+    const channel = supabase
       .channel(`posts-changes-${user?.id || 'anon'}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'forum_posts' },
         () => {
-          if (isMounted) {
-            fetchPosts();
-          }
+          fetchPosts();
         }
       )
       .subscribe();
 
     return () => {
-      isMounted = false;
       if (channel) {
         supabase.removeChannel(channel);
       }
@@ -817,7 +1064,10 @@ export default function Home() {
       {isHomePage && <SubNav />}
       <div className="p-4 sm:p-6 lg:p-8 bg-muted/40">
         <div className="max-w-7xl mx-auto">
-          <CreatePostModal isOpen={isPostModalOpen} onOpenChange={setIsPostModalOpen} />
+          <CreatePostModal isOpen={isPostModalOpen} onOpenChange={(open) => {
+            setIsPostModalOpen(open);
+            if (!open) window.location.reload();
+          }} />
           <PostJobModal isOpen={isJobModalOpen} onOpenChange={setIsJobModalOpen} />
 
           <div className="grid lg:grid-cols-4 gap-8 items-start">
@@ -880,7 +1130,7 @@ export default function Home() {
 
                           return uniquePosts.map((post) => (
                             <div className="px-4" key={post.id}>
-                              <PostCard post={post} currentUserId={user?.id} formatDate={formatDate} />
+                              <PostCard post={post} currentUserId={user?.id} formatDate={formatDate} onRefresh={fetchPosts} />
                             </div>
                           ));
                         })()}

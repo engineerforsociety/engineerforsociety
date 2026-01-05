@@ -51,7 +51,7 @@ const topLinks = [
 
 const mainNavLinks = [
     { href: '/', label: 'Home', icon: Home },
-    { href: '/forums', label: 'Forums', icon: Users },
+    { href: '/network', label: 'My Network', icon: Network },
     { href: '/jobs', label: 'Jobs', icon: Briefcase },
     { href: '/messages', label: 'Messaging', icon: MessageSquare, countKey: 'messages' },
     { href: '/notifications', label: 'Notifications', icon: Bell, countKey: 'notifications' },

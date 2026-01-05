@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Loader2, Users, Plus, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 
@@ -78,8 +78,10 @@ export default function NetworkPage() {
                                 <Button className="w-full">
                                     <Plus className="mr-2 h-4 w-4" /> Connect
                                 </Button>
-                                <Button variant="outline" className="w-full">
-                                    <MessageSquare className="mr-2 h-4 w-4" /> Message
+                                <Button variant="outline" className="w-full" asChild>
+                                    <Link href={`/messages?userId=${profile.id}`}>
+                                        <MessageSquare className="mr-2 h-4 w-4" /> Message
+                                    </Link>
                                 </Button>
                             </CardFooter>
                         </Card>

@@ -102,10 +102,12 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
         .limit(10);
 
       if (activeTab === 'posts') {
-        // Fetch both 'post' (forum) and 'social_post' (social)
+        // Fetch both 'post' (forum), 'social_post' (social), and 'repost'
         query = query.in('activity_type', ['post', 'social_post', 'repost']);
       } else if (activeTab === 'comments') {
         query = query.eq('activity_type', 'comment');
+      } else if (activeTab === 'articles') {
+        query = query.eq('activity_type', 'article');
       }
 
       const { data, error } = await query;
@@ -188,11 +190,23 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
       <CardContent>
         {activities.length === 0 ? (
           <div className="text-center py-12" key="no-activity">
-            <p className="text-muted-foreground">No activities yet.</p>
-            {isOwnProfile && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Start posting or commenting to see your activity here!
-              </p>
+            {activeTab === 'articles' ? (
+              <div className="space-y-3">
+                <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto" />
+                <p className="text-lg font-bold text-muted-foreground">Articles Feature Coming Soon!</p>
+                <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                  We are building a professional publishing platform for engineers to share in-depth research and technical insights.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-muted-foreground">No activities yet.</p>
+                {isOwnProfile && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Start posting or commenting to see your activity here!
+                  </p>
+                )}
+              </>
             )}
           </div>
         ) : (

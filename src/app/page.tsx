@@ -192,7 +192,7 @@ function RecentActivityCard() {
   )
 }
 
-function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentUserId?: string; onRefresh?: () => void }) {
+function PostCard({ post, currentUserId, onRefresh, onEdit }: { post: FeedPost; currentUserId?: string; onRefresh?: () => void; onEdit?: (post: FeedPost) => void }) {
   const supabase = createClient();
   const { toast } = useToast();
   const router = useRouter();
@@ -207,7 +207,6 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCommentsExpanded, setIsCommentsExpanded] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -667,7 +666,10 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
                 <>
                   <DropdownMenuSeparator />
                   {!isRepost && (
-                    <DropdownMenuItem onClick={() => setIsEditModalOpen(true)} disabled={isProcessing}>
+                    <DropdownMenuItem onSelect={(e) => {
+                      e.preventDefault();
+                      onEdit?.(post);
+                    }} disabled={isProcessing}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit Post
                     </DropdownMenuItem>
@@ -912,24 +914,6 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
           />
         )
       }
-      {
-        currentUserId === post.author_id && (
-          <EditPostModal
-            isOpen={isEditModalOpen}
-            onOpenChange={(open) => {
-              setIsEditModalOpen(open);
-              if (!open) {
-                window.location.reload();
-              }
-            }}
-            post={{
-              id: post.id,
-              content: post.content,
-              title: post.title || ''
-            }}
-          />
-        )
-      }
     </Card >
   );
 }
@@ -1034,6 +1018,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
+  const [editingPost, setEditingPost] = useState<FeedPost | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const supabase = createClient();
   const pathname = usePathname();
 
@@ -1235,7 +1221,15 @@ export default function Home() {
 
                           return uniquePosts.map((post) => (
                             <div className="px-4" key={post.feed_item_id || post.id}>
-                              <PostCard post={post} currentUserId={user?.id} onRefresh={fetchPosts} />
+                              <PostCard
+                                post={post}
+                                currentUserId={user?.id}
+                                onRefresh={fetchPosts}
+                                onEdit={(p) => {
+                                  setEditingPost(p);
+                                  setIsEditModalOpen(true);
+                                }}
+                              />
                             </div>
                           ));
                         })()}
@@ -1268,6 +1262,16 @@ export default function Home() {
           </div>
         </div>
       </div>
+      <EditPostModal
+        isOpen={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        onSuccess={fetchPosts}
+        post={editingPost ? {
+          id: editingPost.id,
+          content: editingPost.content,
+          title: editingPost.title || ''
+        } : { id: '', content: '', title: '' }}
+      />
     </>
   );
 }

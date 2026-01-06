@@ -21,6 +21,8 @@ type SharePostModalProps = {
   postId: string;
   currentUserId: string;
   onRepost?: () => void;
+  isRepost?: boolean;
+  repostId?: string;
 };
 
 type Follower = {
@@ -30,7 +32,7 @@ type Follower = {
   job_title: string | null;
 };
 
-export function SharePostModal({ isOpen, onOpenChange, postId, currentUserId, onRepost }: SharePostModalProps) {
+export function SharePostModal({ isOpen, onOpenChange, postId, currentUserId, onRepost, isRepost, repostId }: SharePostModalProps) {
   const [followers, setFollowers] = useState<Follower[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedFollowers, setSelectedFollowers] = useState<Set<string>>(new Set());
@@ -107,11 +109,13 @@ export function SharePostModal({ isOpen, onOpenChange, postId, currentUserId, on
       const shareRecords = Array.from(selectedFollowers).map(followerId => ({
         post_id: postId,
         user_id: followerId,
-        share_type: 'message'
+        share_type: 'message',
+        is_from_repost: !!isRepost,
+        repost_id: isRepost ? repostId : null
       }));
 
       const { error } = await supabase
-        .from('post_shares')
+        .from('forum_post_shares')
         .insert(shareRecords);
 
       if (error) throw error;
@@ -147,13 +151,13 @@ export function SharePostModal({ isOpen, onOpenChange, postId, currentUserId, on
         <DialogHeader>
           <DialogTitle>Share Post</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div>
             <p className="text-sm text-muted-foreground mb-3">
               Share with your followers ({followers.length})
             </p>
-            
+
             {loading ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -168,11 +172,10 @@ export function SharePostModal({ isOpen, onOpenChange, postId, currentUserId, on
                   {followers.map((follower) => (
                     <div
                       key={follower.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedFollowers.has(follower.id)
-                          ? 'bg-primary/10 border border-primary'
-                          : 'hover:bg-muted border border-transparent'
-                      }`}
+                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${selectedFollowers.has(follower.id)
+                        ? 'bg-primary/10 border border-primary'
+                        : 'hover:bg-muted border border-transparent'
+                        }`}
                       onClick={() => handleToggleFollower(follower.id)}
                     >
                       <Avatar className="h-10 w-10">
@@ -211,7 +214,7 @@ export function SharePostModal({ isOpen, onOpenChange, postId, currentUserId, on
               <Send className="mr-2 h-4 w-4" />
               Share with {selectedFollowers.size > 0 ? `${selectedFollowers.size} ` : ''}Selected
             </Button>
-            
+
             <Button
               onClick={handleRepost}
               variant="outline"

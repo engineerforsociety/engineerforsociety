@@ -67,9 +67,9 @@ import { formatDistanceToNow } from 'date-fns';
 type FeedPost = {
   id: string;
   feed_item_id: string;
-  title: string;
+  title: string | null;
   content: string;
-  tags: string[];
+  tags: string[] | null;
   created_at: string;
   feed_created_at: string;
   view_count: number;
@@ -79,17 +79,25 @@ type FeedPost = {
   author_name: string;
   author_avatar: string;
   author_title: string;
-  category_name: string;
+  post_type: 'forum' | 'social';
+  item_type: 'post' | 'repost';
+
+  // Original post counts
   like_count: number;
   comment_count: number;
   share_count?: number;
   repost_count?: number;
   is_liked?: boolean;
   is_saved?: boolean;
-  is_following?: boolean;
-  item_type: 'post' | 'repost';
+
+  // Repost-specific info
   reposter_id?: string;
   reposter_name?: string;
+  reposter_avatar?: string;
+  reposter_title?: string;
+  repost_record_id?: string;
+
+  is_following?: boolean;
 };
 
 type SuggestedUser = {
@@ -188,10 +196,15 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
   const supabase = createClient();
   const { toast } = useToast();
   const router = useRouter();
+  const isRepost = post.item_type === 'repost';
+
+  // Interaction states
   const [isLiked, setIsLiked] = useState(post.is_liked || false);
   const [isSaved, setIsSaved] = useState(post.is_saved || false);
   const [isFollowing, setIsFollowing] = useState(post.is_following || false);
   const [likeCount, setLikeCount] = useState(post.like_count || 0);
+  const [commentCount, setCommentCount] = useState(post.comment_count || 0);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -200,9 +213,7 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
-  const [commentCount, setCommentCount] = useState(post.comment_count || 0);
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
-
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
@@ -224,14 +235,24 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
 
     setIsProcessing(true);
     try {
-      const { error } = await supabase
-        .from('forum_posts')
-        .delete()
-        .eq('id', post.id);
+      if (isRepost) {
+        const { error } = await supabase
+          .from('forum_post_reposts')
+          .delete()
+          .eq('id', post.repost_record_id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const table = post.post_type === 'social' ? 'social_posts' : 'forum_posts';
+        const { error } = await supabase
+          .from(table)
+          .delete()
+          .eq('id', post.id);
 
-      toast({ title: 'Post Deleted', description: 'Your post has been removed.' });
+        if (error) throw error;
+      }
+
+      toast({ title: 'Success', description: 'Post has been removed.' });
       if (onRefresh) {
         onRefresh();
       } else {
@@ -264,31 +285,28 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
 
     setIsProcessing(true);
     try {
-      if (isLiked) {
-        // Unlike
-        const { error } = await supabase
-          .from('post_reactions')
-          .delete()
-          .eq('post_id', post.id)
-          .eq('user_id', currentUserId)
-          .eq('reaction_type', 'like');
-
-        if (error) throw error;
-        setIsLiked(false);
-        setLikeCount(prev => Math.max(0, prev - 1));
+      if (isRepost) {
+        // Handle repost reactions
+        if (isLiked) {
+          await supabase.from('repost_reactions').delete().eq('repost_id', post.repost_record_id).eq('user_id', currentUserId).eq('reaction_type', 'like');
+          setIsLiked(false);
+          setLikeCount((prev: number) => Math.max(0, prev - 1));
+        } else {
+          await supabase.from('repost_reactions').insert({ repost_id: post.repost_record_id, user_id: currentUserId, reaction_type: 'like' });
+          setIsLiked(true);
+          setLikeCount((prev: number) => prev + 1);
+        }
       } else {
-        // Like
-        const { error } = await supabase
-          .from('post_reactions')
-          .insert({
-            post_id: post.id,
-            user_id: currentUserId,
-            reaction_type: 'like'
-          });
-
-        if (error) throw error;
-        setIsLiked(true);
-        setLikeCount(prev => prev + 1);
+        const table = post.post_type === 'social' ? 'social_post_reactions' : 'forum_post_reactions';
+        if (isLiked) {
+          await supabase.from(table).delete().eq('post_id', post.id).eq('user_id', currentUserId).eq('reaction_type', 'like');
+          setIsLiked(false);
+          setLikeCount((prev: number) => Math.max(0, prev - 1));
+        } else {
+          await supabase.from(table).insert({ post_id: post.id, user_id: currentUserId, reaction_type: 'like' });
+          setIsLiked(true);
+          setLikeCount((prev: number) => prev + 1);
+        }
       }
     } catch (error: any) {
       toast({
@@ -313,40 +331,32 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
 
     setIsProcessing(true);
     try {
-      if (isSaved) {
-        // Unsave
-        const { error } = await supabase
-          .from('post_saves')
-          .delete()
-          .eq('post_id', post.id)
-          .eq('user_id', currentUserId);
-
-        if (error) throw error;
-        setIsSaved(false);
-        toast({
-          title: "Post unsaved",
-          description: "Post removed from your saved items."
-        });
+      if (isRepost) {
+        if (isSaved) {
+          await supabase.from('repost_saves').delete().eq('repost_id', post.repost_record_id).eq('user_id', currentUserId);
+          setIsSaved(false);
+          toast({ title: "Removed", description: "Removed from your saved items." });
+        } else {
+          await supabase.from('repost_saves').insert({ repost_id: post.repost_record_id, user_id: currentUserId });
+          setIsSaved(true);
+          toast({ title: "Saved", description: "Added to your saved items." });
+        }
       } else {
-        // Save
-        const { error } = await supabase
-          .from('post_saves')
-          .insert({
-            post_id: post.id,
-            user_id: currentUserId
-          });
-
-        if (error) throw error;
-        setIsSaved(true);
-        toast({
-          title: "Post saved",
-          description: "Post added to your saved items."
-        });
+        const table = post.post_type === 'social' ? 'social_post_saves' : 'forum_post_saves';
+        if (isSaved) {
+          await supabase.from(table).delete().eq('post_id', post.id).eq('user_id', currentUserId);
+          setIsSaved(false);
+          toast({ title: "Removed", description: "Removed from your saved items." });
+        } else {
+          await supabase.from(table).insert({ post_id: post.id, user_id: currentUserId });
+          setIsSaved(true);
+          toast({ title: "Saved", description: "Added to your saved items." });
+        }
       }
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to save post.",
+        description: error.message || "Failed to save.",
         variant: "destructive"
       });
     } finally {
@@ -380,7 +390,7 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
     try {
       // Check if already reposted
       const { data: existing } = await supabase
-        .from('post_reposts')
+        .from('forum_post_reposts')
         .select('id')
         .eq('original_post_id', post.id)
         .eq('reposter_id', currentUserId)
@@ -389,7 +399,7 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
       if (existing) {
         // Unrepost
         const { error } = await supabase
-          .from('post_reposts')
+          .from('forum_post_reposts')
           .delete()
           .eq('original_post_id', post.id)
           .eq('reposter_id', currentUserId);
@@ -402,7 +412,7 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
       } else {
         // Repost
         const { error } = await supabase
-          .from('post_reposts')
+          .from('forum_post_reposts')
           .insert({
             original_post_id: post.id,
             reposter_id: currentUserId
@@ -498,21 +508,14 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
     if (comments.length > 0) return;
     setIsLoadingComments(true);
     try {
-      const { data, error } = await supabase
-        .from('forum_comments')
-        .select(`
-          id,
-          content,
-          created_at,
-          author_id,
-          profiles (
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq('post_id', post.id)
-        .order('created_at', { ascending: true });
-
+      let query;
+      if (isRepost) {
+        query = supabase.from('repost_comments').select('id, content, created_at, author_id, profiles(full_name, avatar_url)').eq('repost_id', post.repost_record_id);
+      } else {
+        const table = post.post_type === 'social' ? 'social_comments' : 'forum_comments';
+        query = supabase.from(table).select('id, content, created_at, author_id, profiles(full_name, avatar_url)').eq('post_id', post.id);
+      }
+      const { data, error } = await query.order('created_at', { ascending: true });
       if (error) throw error;
       setComments(data || []);
     } catch (error: any) {
@@ -543,11 +546,21 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
     if (!newComment.trim()) return;
 
     setIsSubmittingComment(true);
+    setIsSubmittingComment(true);
     try {
+      let table, idField;
+      if (isRepost) {
+        table = 'repost_comments';
+        idField = 'repost_id';
+      } else {
+        table = post.post_type === 'social' ? 'social_comments' : 'forum_comments';
+        idField = 'post_id';
+      }
+
       const { data, error } = await supabase
-        .from('forum_comments')
+        .from(table)
         .insert({
-          post_id: post.id,
+          [idField]: isRepost ? post.repost_record_id : post.id,
           author_id: currentUserId,
           content: newComment.trim()
         })
@@ -556,10 +569,7 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
           content,
           created_at,
           author_id,
-          profiles (
-            full_name,
-            avatar_url
-          )
+          profiles (full_name, avatar_url)
         `)
         .single();
 
@@ -567,17 +577,10 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
 
       setComments([...comments, data]);
       setNewComment('');
-      setCommentCount(prev => prev + 1);
-      toast({
-        title: "Comment added!",
-        description: "Your thought has been shared."
-      });
+      setCommentCount((prev: number) => prev + 1);
+      toast({ title: "Comment shared" });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to post comment.",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setIsSubmittingComment(false);
     }
@@ -590,31 +593,44 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
 
   return (
     <Card className="overflow-hidden">
-      {post.item_type === 'repost' && (
-        <div className="px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground border-b border-border/40 bg-muted/30">
-          <Repeat2 className="h-3 w-3 text-primary/60" />
-          <Link href={`/users/${post.reposter_id}`} className="font-semibold hover:underline text-foreground/80">
-            {post.reposter_name}
-          </Link>
-          <span>reposted this</span>
-        </div>
-      )}
       <CardHeader>
         <div className="flex items-center gap-4">
-          <Link href={`/users/${post.author_id}`} onClick={handleAuthorClick}>
+          <Link
+            href={`/users/${post.item_type === 'repost' ? post.reposter_id : post.author_id}`}
+            onClick={(e) => {
+              e.preventDefault();
+              router.push(`/users/${post.item_type === 'repost' ? post.reposter_id : post.author_id}`);
+            }}
+          >
             <Avatar className="cursor-pointer hover:opacity-80 transition-opacity">
-              <AvatarImage src={post.author_avatar} alt={post.author_name} />
-              <AvatarFallback>{post.author_name?.substring(0, 2) || 'U'}</AvatarFallback>
+              <AvatarImage
+                src={post.item_type === 'repost' ? post.reposter_avatar : post.author_avatar}
+                alt={post.item_type === 'repost' ? post.reposter_name : post.author_name}
+              />
+              <AvatarFallback>
+                {(post.item_type === 'repost' ? post.reposter_name : post.author_name)?.substring(0, 2) || 'U'}
+              </AvatarFallback>
             </Avatar>
           </Link>
           <div className="flex-1">
-            <Link href={`/users/${post.author_id}`} onClick={handleAuthorClick}>
-              <CardTitle className="text-base font-semibold leading-tight hover:underline cursor-pointer">
-                {post.author_name || 'Anonymous'}
-              </CardTitle>
+            <Link
+              href={`/users/${post.item_type === 'repost' ? post.reposter_id : post.author_id}`}
+              onClick={(e) => {
+                e.preventDefault();
+                router.push(`/users/${post.item_type === 'repost' ? post.reposter_id : post.author_id}`);
+              }}
+            >
+              <div className="flex items-center gap-1 flex-wrap">
+                <CardTitle className="text-base font-semibold leading-tight hover:underline cursor-pointer">
+                  {post.item_type === 'repost' ? post.reposter_name : (post.author_name || 'Anonymous')}
+                </CardTitle>
+                {post.item_type === 'repost' && (
+                  <span className="text-xs text-muted-foreground font-normal">reposted this</span>
+                )}
+              </div>
             </Link>
             <CardDescription className="text-xs">
-              {post.author_title || 'Engineer'} · {formatDate(post.created_at)}
+              {(post.item_type === 'repost' ? post.reposter_title : post.author_title) || 'Engineer'} · {formatDate(post.item_type === 'repost' ? post.feed_created_at : post.created_at)}
             </CardDescription>
           </div>
           <DropdownMenu>
@@ -647,13 +663,15 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
                   Unfollow
                 </DropdownMenuItem>
               )}
-              {currentUserId === post.author_id && (
+              {currentUserId === (post.item_type === 'repost' ? post.reposter_id : post.author_id) && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setIsEditModalOpen(true)} disabled={isProcessing}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit Post
-                  </DropdownMenuItem>
+                  {!isRepost && (
+                    <DropdownMenuItem onClick={() => setIsEditModalOpen(true)} disabled={isProcessing}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Post
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onClick={handleDelete}
                     disabled={isProcessing}
@@ -669,58 +687,102 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
         </div>
       </CardHeader>
       <CardContent>
-        {(() => {
-          const isTitleDerived = post.title.endsWith('...')
-            ? post.content.startsWith(post.title.slice(0, -3))
-            : post.title === post.content;
+        {post.item_type === 'repost' ? (
+          <div className="border rounded-xl p-4 bg-muted/20 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => router.push(`/forums/post/${post.slug}${post.item_type === 'repost' ? `?repost=${post.repost_record_id}` : ''}`)}>
+            <div className="flex items-center gap-3 mb-3">
+              <Link
+                href={`/users/${post.author_id}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Avatar className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity">
+                  <AvatarImage src={post.author_avatar} alt={post.author_name} />
+                  <AvatarFallback>{post.author_name?.substring(0, 2) || 'U'}</AvatarFallback>
+                </Avatar>
+              </Link>
+              <div className="flex-1">
+                <Link
+                  href={`/users/${post.author_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <p className="text-sm font-bold leading-tight hover:underline cursor-pointer">{post.author_name}</p>
+                </Link>
+                <p className="text-xs text-muted-foreground">{post.author_title} · {formatDate(post.created_at)}</p>
+              </div>
+            </div>
 
-          const maxLength = 280; // Character limit for "See more"
-          const shouldTruncate = post.content.length > maxLength && !isExpanded;
-          const displayContent = shouldTruncate ? post.content.substring(0, maxLength) + '...' : post.content;
+            <div className="space-y-4">
+              {post.title && <h3 className="text-base font-bold">{post.title}</h3>}
+              <p className="text-sm text-foreground/80 line-clamp-3 whitespace-pre-wrap">
+                {post.content}
+              </p>
+            </div>
 
-          if (isTitleDerived) {
+            {post.tags && post.tags.length > 0 && (
+              <div className="flex gap-2 flex-wrap mt-3">
+                {post.tags.slice(0, 3).map((tag) => (
+                  <Badge key={tag} variant="secondary" className="text-[10px] py-0 px-2 h-5">
+                    #{tag.toLowerCase().replace(/ /g, '')}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          (() => {
+            const isForumPost = post.post_type === 'forum';
+            const hasTitle = !!post.title;
+
+            // If it's a social post or doesn't have a distinct title, render only content
+            const renderOnlyContent = !isForumPost || !hasTitle || (post.title === post.content) || (post.title?.endsWith('...') && post.content.startsWith(post.title.slice(0, -3)));
+
+            const maxLength = 280;
+            const shouldTruncate = post.content.length > maxLength && !isExpanded;
+            const displayContent = shouldTruncate ? post.content.substring(0, maxLength) + '...' : post.content;
+
+            if (renderOnlyContent) {
+              return (
+                <div className="space-y-4">
+                  <Link href={`/forums/post/${post.slug}`} className="block group">
+                    <p className="text-foreground text-sm sm:text-base whitespace-pre-wrap group-hover:text-primary transition-colors">
+                      {displayContent}
+                    </p>
+                  </Link>
+                  {post.content.length > maxLength && (
+                    <button
+                      onClick={() => setIsExpanded(!isExpanded)}
+                      className="text-primary font-semibold text-sm hover:underline focus:outline-none"
+                    >
+                      {isExpanded ? 'See less' : '...see more'}
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
             return (
-              <div className="space-y-4">
+              <>
                 <Link href={`/forums/post/${post.slug}`} className="block group">
-                  <p className="text-foreground text-sm sm:text-base whitespace-pre-wrap group-hover:text-primary transition-colors">
+                  <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{post.title}</h3>
+                </Link>
+                <div className="space-y-4">
+                  <p className="text-muted-foreground text-sm whitespace-pre-wrap">
                     {displayContent}
                   </p>
-                </Link>
-                {post.content.length > maxLength && (
-                  <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="text-primary font-semibold text-sm hover:underline focus:outline-none"
-                  >
-                    {isExpanded ? 'See less' : '...see more'}
-                  </button>
-                )}
-              </div>
+                  {post.content.length > maxLength && (
+                    <button
+                      onClick={() => setIsExpanded(!isExpanded)}
+                      className="text-primary font-semibold text-sm hover:underline focus:outline-none"
+                    >
+                      {isExpanded ? 'See less' : '...see more'}
+                    </button>
+                  )}
+                </div>
+              </>
             );
-          }
+          })()
+        )}
 
-          return (
-            <>
-              <Link href={`/forums/post/${post.slug}`} className="block group">
-                <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{post.title}</h3>
-              </Link>
-              <div className="space-y-4">
-                <p className="text-muted-foreground text-sm whitespace-pre-wrap">
-                  {displayContent}
-                </p>
-                {post.content.length > maxLength && (
-                  <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="text-primary font-semibold text-sm hover:underline focus:outline-none"
-                  >
-                    {isExpanded ? 'See less' : '...see more'}
-                  </button>
-                )}
-              </div>
-            </>
-          );
-        })()}
-
-        {post.tags && post.tags.length > 0 && (
+        {post.item_type !== 'repost' && post.tags && post.tags.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             {post.tags.map((tag) => (
               <Badge key={tag} variant="secondary" className="hover:bg-primary/10 cursor-pointer">
@@ -845,6 +907,8 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
             postId={post.id}
             currentUserId={currentUserId}
             onRepost={handleRepost}
+            isRepost={isRepost}
+            repostId={post.repost_record_id}
           />
         )
       }
@@ -861,7 +925,7 @@ function PostCard({ post, currentUserId, onRefresh }: { post: FeedPost; currentU
             post={{
               id: post.id,
               content: post.content,
-              title: post.title
+              title: post.title || ''
             }}
           />
         )
@@ -963,6 +1027,7 @@ function SuggestedFollows({ currentUser }: { currentUser: User | null }) {
 export default function Home() {
   const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [modalInitialType, setModalInitialType] = useState<'social' | 'forum'>('social');
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -1040,22 +1105,29 @@ export default function Home() {
       fetchPosts();
     }
 
-    // Subscribe to new posts
-    const channel = supabase
-      .channel(`posts-changes-${user?.id || 'anon'}`)
+    // Subscribe to forum posts
+    const forumChannel = supabase
+      .channel(`forum-posts-changes`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'forum_posts' },
-        () => {
-          fetchPosts();
-        }
+        () => fetchPosts()
+      )
+      .subscribe();
+
+    // Subscribe to social posts
+    const socialChannel = supabase
+      .channel(`social-posts-changes`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'social_posts' },
+        () => fetchPosts()
       )
       .subscribe();
 
     return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
+      supabase.removeChannel(forumChannel);
+      supabase.removeChannel(socialChannel);
     };
   }, [user, supabase]);
 
@@ -1081,10 +1153,12 @@ export default function Home() {
       {isHomePage && <SubNav />}
       <div className="p-4 sm:p-6 lg:p-8 bg-muted/40">
         <div className="max-w-7xl mx-auto">
-          <CreatePostModal isOpen={isPostModalOpen} onOpenChange={(open) => {
-            setIsPostModalOpen(open);
-            if (!open) window.location.reload();
-          }} />
+          <CreatePostModal
+            isOpen={isPostModalOpen}
+            initialType={modalInitialType}
+            onOpenChange={setIsPostModalOpen}
+            onSuccess={fetchPosts}
+          />
           <PostJobModal isOpen={isJobModalOpen} onOpenChange={setIsJobModalOpen} />
 
           <div className="grid lg:grid-cols-4 gap-8 items-start">
@@ -1104,7 +1178,10 @@ export default function Home() {
                   </Link>
                   <div className="flex-1">
                     <button
-                      onClick={() => setIsPostModalOpen(true)}
+                      onClick={() => {
+                        setModalInitialType('social');
+                        setIsPostModalOpen(true);
+                      }}
                       className="w-full bg-muted rounded-full px-4 py-3 text-sm text-left text-muted-foreground border-transparent hover:bg-border transition-colors"
                     >
                       Start a post
@@ -1112,7 +1189,17 @@ export default function Home() {
                   </div>
                 </CardHeader>
                 <CardFooter className="flex justify-around">
-                  <Button onClick={() => setIsPostModalOpen(true)} variant="ghost" size="sm" className="text-muted-foreground font-semibold"><FilePen className="text-blue-500" /> Forum Post</Button>
+                  <Button
+                    onClick={() => {
+                      setModalInitialType('forum');
+                      setIsPostModalOpen(true);
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground font-semibold"
+                  >
+                    <FilePen className="text-blue-500" /> Forum Post
+                  </Button>
                   <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><BookCopy className="text-sky-500" /> Write article</Button>
                   <Button variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Calendar className="text-amber-500" /> Create event</Button>
                   <Button onClick={() => setIsJobModalOpen(true)} variant="ghost" size="sm" className="text-muted-foreground font-semibold"><Newspaper className="text-rose-500" /> Post a job</Button>

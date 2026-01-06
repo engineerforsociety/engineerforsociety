@@ -22,17 +22,38 @@ import { User } from '@supabase/supabase-js';
 type CreatePostModalProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  initialType?: 'social' | 'forum';
+  onSuccess?: () => void;
 };
 
-export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) {
+export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess }: CreatePostModalProps) {
   const profilePic = PlaceHolderImages.find((p) => p.id === 'profile-pic');
   const [postContent, setPostContent] = useState('');
+  const [title, setTitle] = useState('');
+  const [postType, setPostType] = useState<'social' | 'forum'>(initialType || 'social');
+  const [categories, setCategories] = useState<any[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [isPosting, setIsPosting] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
+
+  useEffect(() => {
+    setPostType(initialType || 'social');
+  }, [initialType, isOpen]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase.from('forum_categories').select('*').eq('is_active', true).order('display_order');
+      if (data) {
+        setCategories(data);
+        if (data.length > 0) setSelectedCategoryId(data[0].id);
+      }
+    };
+    if (isOpen) fetchCategories();
+  }, [isOpen, supabase]);
 
   useEffect(() => {
     const getUserAndProfile = async () => {
@@ -70,52 +91,43 @@ export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) 
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "You must be signed in to post.",
-          variant: "destructive"
+      if (!user) throw new Error("You must be signed in to post.");
+
+      const postSlug = (postType === 'forum' ? title : postContent.substring(0, 50))
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') + `-${Date.now()}`;
+
+      if (postType === 'forum') {
+        if (!title.trim()) throw new Error("Title is required for discussions.");
+        if (!selectedCategoryId) throw new Error("Please select a category.");
+
+        const { error } = await supabase.from('forum_posts').insert({
+          content: postContent,
+          title: title,
+          category_id: selectedCategoryId,
+          author_id: user.id,
+          slug: postSlug,
+          tags: []
         });
-        setIsPosting(false);
-        return;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('social_posts').insert({
+          content: postContent,
+          author_id: user.id,
+          slug: postSlug
+        });
+        if (error) throw error;
       }
 
-      // Quick fix: Fetch the first category available
-      const { data: categories, error: categoryError } = await supabase.from('forum_categories').select('id').limit(1);
-
-      if (categoryError) throw new Error(`Could not fetch categories: ${categoryError.message}`);
-      
-      const categoryId = categories?.[0]?.id;
-
-      if (!categoryId) {
-        toast({
-          title: "Error",
-          description: "No forum categories found. An administrator needs to create one.",
-          variant: "destructive"
-        });
-        setIsPosting(false);
-        return;
-      }
-
-      const title = postContent.substring(0, 50) + (postContent.length > 50 ? '...' : '');
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + `-${Date.now()}`;
-
-      const { error } = await supabase.from('forum_posts').insert({
-        content: postContent,
-        title: title, 
-        category_id: categoryId,
-        author_id: user.id,
-        slug: slug,
-        tags: [],
-      });
-
-      if (error) throw error;
+      if (onSuccess) onSuccess();
 
       toast({
-        title: "Post created!",
-        description: "Your post has been successfully shared.",
+        title: postType === 'forum' ? "Discussion started!" : "Post shared!",
+        description: "Your content is now live in the community feed.",
       });
       setPostContent('');
+      setTitle('');
       onOpenChange(false);
     } catch (error: any) {
       toast({
@@ -163,21 +175,61 @@ export function CreatePostModal({ isOpen, onOpenChange }: CreatePostModalProps) 
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[625px]">
         <DialogHeader>
-          <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarImage src={avatarUrl} alt={displayName} />
-              <AvatarFallback>{displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div>
-              <DialogTitle className="text-base font-semibold">{displayName}</DialogTitle>
-              <p className="text-sm text-muted-foreground">Post to anyone</p>
+          <div className="flex items-center justify-between pr-8">
+            <div className="flex items-center gap-3">
+              <Avatar>
+                <AvatarImage src={avatarUrl} alt={displayName} />
+                <AvatarFallback>{displayName.substring(0, 2).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div>
+                <DialogTitle className="text-base font-semibold">{displayName}</DialogTitle>
+                <div className="flex gap-2 mt-1">
+                  <Button
+                    variant={postType === 'social' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-7 text-xs rounded-full"
+                    onClick={() => setPostType('social')}
+                  >
+                    Post
+                  </Button>
+                  <Button
+                    variant={postType === 'forum' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-7 text-xs rounded-full"
+                    onClick={() => setPostType('forum')}
+                  >
+                    Discussion
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </DialogHeader>
-        <div className="py-4">
+        <div className="py-2 space-y-4">
+          {postType === 'forum' && (
+            <div className="space-y-3 px-1">
+              <input
+                type="text"
+                placeholder="Discussion Title"
+                className="w-full text-xl font-bold border-none focus-visible:outline-none placeholder:text-muted-foreground/50 bg-transparent"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+              <select
+                className="text-xs bg-muted border-none rounded-md px-2 py-1 outline-none text-muted-foreground hover:bg-muted/80 transition-colors"
+                value={selectedCategoryId}
+                onChange={(e) => setSelectedCategoryId(e.target.value)}
+              >
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <Separator />
+            </div>
+          )}
           <Textarea
-            placeholder="What do you want to talk about?"
-            className="min-h-[200px] border-none focus-visible:ring-0 text-base"
+            placeholder={postType === 'forum' ? "Start the discussion..." : "What do you want to talk about?"}
+            className="min-h-[200px] border-none focus-visible:ring-0 text-base resize-none"
             value={postContent}
             onChange={(e) => setPostContent(e.target.value)}
           />

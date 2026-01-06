@@ -47,7 +47,7 @@ export default function SavedPostsPage() {
 
             // Fetch saved posts with author details
             const { data, error } = await supabase
-                .from('post_saves')
+                .from('forum_post_saves')
                 .select(`
                     id,
                     created_at,
@@ -100,7 +100,7 @@ export default function SavedPostsPage() {
         setUnsavingId(postId);
         try {
             const { error } = await supabase
-                .from('post_saves')
+                .from('forum_post_saves')
                 .delete()
                 .eq('post_id', postId)
                 .eq('user_id', user.id);

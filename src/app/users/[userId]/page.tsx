@@ -12,6 +12,7 @@ import { EducationSection } from '@/app/components/profile/education-section';
 import { SkillsSection } from '@/app/components/profile/skills-section';
 import { ActivitySection } from '@/app/components/profile/activity-section';
 import { ProfileConnectionButton } from '@/app/components/profile/profile-connection-button';
+import { ProfileHeaderActions } from '@/app/components/profile/profile-header-actions';
 
 async function getProfileData(userId: string, currentUserId?: string) {
     const supabase = await createClient();
@@ -28,8 +29,8 @@ async function getProfileData(userId: string, currentUserId?: string) {
 
     const experiencesPromise = supabase.from('experiences').select('*').eq('profile_id', userId).order('start_date', { ascending: false });
     const educationsPromise = supabase.from('educations').select('*').eq('profile_id', userId).order('start_date', { ascending: false });
-    
-    let connectionPromise = Promise.resolve({ data: null, error: null });
+
+    let connectionPromise: any = Promise.resolve({ data: null, error: null });
     if (currentUserId && currentUserId !== userId) {
         connectionPromise = supabase
             .from('connections')
@@ -38,17 +39,32 @@ async function getProfileData(userId: string, currentUserId?: string) {
             .maybeSingle();
     }
 
-    const [experiencesRes, educationsRes, connectionRes] = await Promise.all([
+    const followerCountPromise = supabase
+        .from('user_follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', userId);
+
+    const connectionCountPromise = supabase
+        .from('connections')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`);
+
+    const [experiencesRes, educationsRes, connectionRes, followerCountRes, connectionCountRes] = await Promise.all([
         experiencesPromise,
         educationsPromise,
-        connectionPromise
+        connectionPromise,
+        followerCountPromise,
+        connectionCountPromise
     ]);
 
     return {
         profile,
         experiences: experiencesRes.data || [],
         educations: educationsRes.data || [],
-        connection: connectionRes.data
+        connection: connectionRes.data,
+        followerCount: followerCountRes.count || 0,
+        connectionCount: connectionCountRes.count || 0
     };
 }
 
@@ -56,9 +72,9 @@ async function getProfileData(userId: string, currentUserId?: string) {
 export default async function UserProfilePage({ params }: { params: { userId: string } }) {
     const supabase = await createClient();
     const { data: { user: currentUser } } = await supabase.auth.getUser();
-    
+
     const { userId } = params;
-    const { profile, experiences, educations, connection } = await getProfileData(userId, currentUser?.id);
+    const { profile, experiences, educations, connection, followerCount, connectionCount } = await getProfileData(userId, currentUser?.id);
 
     if (!profile) {
         notFound();
@@ -91,19 +107,37 @@ export default async function UserProfilePage({ params }: { params: { userId: st
                                     <div className="flex flex-col md:flex-row justify-between items-start">
                                         <div>
                                             <h1 className="text-2xl md:text-3xl font-bold">{profile.full_name}</h1>
-                                            <p className="text-md text-muted-foreground">{profile.job_title}</p>
-                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mt-2">
+                                            <p className="text-md font-medium text-foreground/80">{profile.job_title}</p>
+
+                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mt-3">
+                                                {profile.engineering_field && (
+                                                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/5 text-primary rounded-md font-medium border border-primary/10">
+                                                        <Briefcase className="h-3.5 w-3.5" /> {profile.engineering_field}
+                                                    </div>
+                                                )}
                                                 {profile.company && (
                                                     <div className="flex items-center gap-1.5"><Building className="h-4 w-4" /> {profile.company}</div>
                                                 )}
                                                 {profile.location && (
                                                     <div className="flex items-center gap-1.5"><MapPin className="h-4 w-4" /> {profile.location}</div>
                                                 )}
+                                                <div className="flex items-center gap-1.5 text-primary font-semibold hover:underline cursor-pointer">
+                                                    <Mail className="h-4 w-4" /> Contact info
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-4 mt-4">
+                                                <div className="text-sm font-semibold text-primary hover:underline cursor-pointer">
+                                                    {connectionCount} connections
+                                                </div>
+                                                <div className="text-sm font-semibold text-muted-foreground">
+                                                    {followerCount} followers
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex gap-2 mt-4 md:mt-0 w-full md:w-auto">
                                             {isOwnProfile ? (
-                                                <Button>Edit Profile</Button>
+                                                <ProfileHeaderActions isOwnProfile={isOwnProfile} profile={profile} />
                                             ) : (
                                                 <>
                                                     <ProfileConnectionButton
@@ -126,15 +160,15 @@ export default async function UserProfilePage({ params }: { params: { userId: st
                     </Card>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      <div className="lg:col-span-2 space-y-6">
-                          <ActivitySection userId={userId} isOwnProfile={isOwnProfile} />
-                          <AboutSection bio={profile.bio} isOwnProfile={isOwnProfile} />
-                          <ExperienceSection experiences={experiences} isOwnProfile={isOwnProfile} />
-                          <EducationSection educations={educations} isOwnProfile={isOwnProfile} />
-                      </div>
-                      <div className="lg:col-span-1 space-y-6">
-                           <SkillsSection skills={profile.skills} isOwnProfile={isOwnProfile} />
-                      </div>
+                        <div className="lg:col-span-2 space-y-6">
+                            <ActivitySection userId={userId} isOwnProfile={isOwnProfile} />
+                            <AboutSection bio={profile.bio} isOwnProfile={isOwnProfile} />
+                            <ExperienceSection experiences={experiences} isOwnProfile={isOwnProfile} />
+                            <EducationSection educations={educations} isOwnProfile={isOwnProfile} />
+                        </div>
+                        <div className="lg:col-span-1 space-y-6">
+                            <SkillsSection skills={profile.skills} isOwnProfile={isOwnProfile} />
+                        </div>
                     </div>
                 </div>
             </div>

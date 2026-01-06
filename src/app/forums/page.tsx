@@ -25,7 +25,28 @@ import {
   Puzzle,
   Microscope,
   Globe,
-  ChevronUp
+  ChevronUp,
+  Shirt,
+  Factory,
+  UserCheck,
+  Laptop,
+  Award,
+  GraduationCap,
+  Leaf,
+  Scale,
+  AlertTriangle,
+  HeartPulse,
+  Home,
+  PencilRuler,
+  BookOpen,
+  Binary,
+  Layout,
+  Map,
+  Rocket,
+  Mic,
+  Coffee,
+  Wrench,
+  HelpCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,7 +75,28 @@ const ICON_MAP: Record<string, any> = {
   'Github': Github,
   'Puzzle': Puzzle,
   'Microscope': Microscope,
-  'Globe': Globe
+  'Globe': Globe,
+  'Shirt': Shirt,
+  'Factory': Factory,
+  'UserCheck': UserCheck,
+  'Laptop': Laptop,
+  'Award': Award,
+  'GraduationCap': GraduationCap,
+  'Leaf': Leaf,
+  'Scale': Scale,
+  'AlertTriangle': AlertTriangle,
+  'HeartPulse': HeartPulse,
+  'Home': Home,
+  'PencilRuler': PencilRuler,
+  'BookOpen': BookOpen,
+  'Binary': Binary,
+  'Layout': Layout,
+  'Map': Map,
+  'Rocket': Rocket,
+  'Mic': Mic,
+  'Coffee': Coffee,
+  'Wrench': Wrench,
+  'HelpCircle': HelpCircle
 };
 
 type Category = {

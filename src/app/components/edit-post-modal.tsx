@@ -7,7 +7,8 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogFooter
+    DialogFooter,
+    DialogDescription
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -27,9 +28,10 @@ type EditPostModalProps = {
         content: string;
         title: string;
     };
+    onSuccess?: () => void;
 };
 
-export function EditPostModal({ isOpen, onOpenChange, post }: EditPostModalProps) {
+export function EditPostModal({ isOpen, onOpenChange, post, onSuccess }: EditPostModalProps) {
     const profilePic = PlaceHolderImages.find((p) => p.id === 'profile-pic');
     const [postContent, setPostContent] = useState(post.content);
     const [isUpdating, setIsUpdating] = useState(false);
@@ -42,6 +44,16 @@ export function EditPostModal({ isOpen, onOpenChange, post }: EditPostModalProps
     useEffect(() => {
         setPostContent(post.content);
     }, [post]);
+
+    // Safety cleanup for pointer-events
+    useEffect(() => {
+        if (!isOpen) {
+            const timer = setTimeout(() => {
+                document.body.style.pointerEvents = '';
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen]);
 
     useEffect(() => {
         const getUserAndProfile = async () => {
@@ -88,6 +100,8 @@ export function EditPostModal({ isOpen, onOpenChange, post }: EditPostModalProps
 
             if (error) throw error;
 
+            if (onSuccess) onSuccess();
+
             toast({
                 title: "Post updated!",
                 description: "Your post has been successfully updated.",
@@ -115,7 +129,7 @@ export function EditPostModal({ isOpen, onOpenChange, post }: EditPostModalProps
                         </Avatar>
                         <div>
                             <DialogTitle className="text-base font-semibold">Edit Post</DialogTitle>
-                            <p className="text-sm text-muted-foreground">Editing your contribution</p>
+                            <DialogDescription className="text-sm text-muted-foreground">Editing your contribution</DialogDescription>
                         </div>
                     </div>
                 </DialogHeader>

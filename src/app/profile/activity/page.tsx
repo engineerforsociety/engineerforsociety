@@ -160,7 +160,10 @@ export default function UserActivityPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => handleEdit(post)}>
+                                            <DropdownMenuItem onSelect={(e) => {
+                                                e.preventDefault();
+                                                handleEdit(post);
+                                            }}>
                                                 <Edit className="mr-2 h-4 w-4" />
                                                 Edit Post
                                             </DropdownMenuItem>
@@ -188,21 +191,15 @@ export default function UserActivityPage() {
             {/* Modals */}
             <CreatePostModal
                 isOpen={isCreateModalOpen}
-                onOpenChange={(open) => {
-                    setIsCreateModalOpen(open);
-                    if (!open) window.location.reload();
-                }}
+                onOpenChange={setIsCreateModalOpen}
+                onSuccess={fetchMyPosts}
             />
 
             {selectedPost && (
                 <EditPostModal
                     isOpen={isEditModalOpen}
-                    onOpenChange={(open) => {
-                        setIsEditModalOpen(open);
-                        if (!open) {
-                            window.location.reload();
-                        }
-                    }}
+                    onOpenChange={setIsEditModalOpen}
+                    onSuccess={fetchMyPosts}
                     post={selectedPost}
                 />
             )}

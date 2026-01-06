@@ -29,6 +29,7 @@ export function EditIntroModal({ isOpen, onOpenChange, profile }: EditIntroModal
     const [loading, setLoading] = useState(false);
     const supabase = createClient();
     const { toast } = useToast();
+    const router = useRouter();
 
     const [formData, setFormData] = useState({
         full_name: '',
@@ -73,7 +74,7 @@ export function EditIntroModal({ isOpen, onOpenChange, profile }: EditIntroModal
 
             toast({ title: 'Success', description: 'Intro updated successfully!' });
             onOpenChange(false);
-            window.location.reload();
+            router.refresh();
         } catch (error: any) {
             toast({ title: 'Error', description: error.message, variant: 'destructive' });
         } finally {

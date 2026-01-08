@@ -1111,7 +1111,7 @@ export default function Home() {
 
     setLoadingPosts(true);
     try {
-      // Fetch forum posts
+      // Fetch forum posts with reaction counts
       const { data: forumData, error: forumError } = await supabase
         .from('forum_posts')
         .select(`
@@ -1121,14 +1121,16 @@ export default function Home() {
           created_at,
           author_id,
           slug,
-          view_count
+          view_count,
+          forum_post_reactions(count),
+          forum_comments(count)
         `)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(30);
 
       if (forumError) throw forumError;
 
-      // Fetch social posts
+      // Fetch social posts with reaction counts
       const { data: socialData, error: socialError } = await supabase
         .from('social_posts')
         .select(`
@@ -1136,10 +1138,12 @@ export default function Home() {
           content,
           created_at,
           author_id,
-          slug
+          slug,
+          social_post_reactions(count),
+          social_comments(count)
         `)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(30);
 
       if (socialError) throw socialError;
 
@@ -1155,31 +1159,67 @@ export default function Home() {
 
       const profilesMap = new Map(profiles?.map(p => [p.id, p]));
 
-      // Transform and merge posts
+      // Smart Feed Algorithm - Calculate engagement score
+      const calculateEngagementScore = (
+        likeCount: number,
+        commentCount: number,
+        viewCount: number,
+        createdAt: string
+      ): number => {
+        // Time decay factor (posts older than 24 hours get reduced score)
+        const ageInHours = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60);
+        const timeDecay = Math.max(0.1, 1 - (ageInHours / 168)); // Decay over 7 days
+
+        // Engagement weights
+        const likeWeight = 3;
+        const commentWeight = 5; // Comments are more valuable for engagement
+        const viewWeight = 0.1;
+
+        // Calculate raw engagement score
+        const rawScore = (likeCount * likeWeight) + (commentCount * commentWeight) + (viewCount * viewWeight);
+
+        // Apply time decay and ensure recent posts get visibility
+        // Recent posts (< 2 hours) get a significant boost
+        const recencyBonus = ageInHours < 2 ? 50 : (ageInHours < 12 ? 20 : 0);
+
+        return (rawScore * timeDecay) + recencyBonus;
+      };
+
+      // Transform forum posts
       const formattedForumPosts = (forumData || []).map(post => {
         const author = profilesMap.get(post.author_id);
+        const likeCount = post.forum_post_reactions?.[0]?.count || 0;
+        const commentCount = post.forum_comments?.[0]?.count || 0;
+
         return {
           id: post.id,
           feed_item_id: `forum-${post.id}`,
           title: post.title,
           content: post.content,
           created_at: post.created_at,
-          feed_created_at: post.created_at, // Use created_at for sorting
+          feed_created_at: post.created_at,
           view_count: post.view_count || 0,
           slug: post.slug,
           author_id: post.author_id,
           author_name: author?.full_name || 'Unknown',
           author_avatar: author?.avatar_url,
           author_title: author?.job_title,
-          post_type: 'forum',
-          item_type: 'post',
-          like_count: 0,
-          comment_count: 0,
+          post_type: 'forum' as const,
+          item_type: 'post' as const,
+          like_count: likeCount,
+          comment_count: commentCount,
+          tags: null,
+          is_pinned: false,
+          engagement_score: calculateEngagementScore(likeCount, commentCount, post.view_count || 0, post.created_at),
         };
       });
 
+      // Transform social posts
       const formattedSocialPosts = (socialData || []).map(post => {
         const author = profilesMap.get(post.author_id);
+        const likeCount = post.social_post_reactions?.[0]?.count || 0;
+        const commentCount = post.social_comments?.[0]?.count || 0;
+
         return {
           id: post.id,
           feed_item_id: `social-${post.id}`,
@@ -1190,22 +1230,34 @@ export default function Home() {
           author_name: author?.full_name || 'Unknown',
           author_avatar: author?.avatar_url,
           author_title: author?.job_title,
-          post_type: 'social',
-          item_type: 'post',
-          like_count: 0,
-          comment_count: 0,
+          post_type: 'social' as const,
+          item_type: 'post' as const,
+          like_count: likeCount,
+          comment_count: commentCount,
           title: null,
           slug: post.slug || '',
           view_count: 0,
+          tags: null,
+          is_pinned: false,
+          engagement_score: calculateEngagementScore(likeCount, commentCount, 0, post.created_at),
         };
       });
 
-      // Merge and sort
-      const allPosts = [...formattedForumPosts, ...formattedSocialPosts].sort((a, b) =>
-        new Date(b.feed_created_at).getTime() - new Date(a.feed_created_at).getTime()
-      );
+      // Merge and sort by engagement score (smart algorithm)
+      const allPosts = [...formattedForumPosts, ...formattedSocialPosts].sort((a, b) => {
+        // Primary sort by engagement score
+        const scoreDiff = (b.engagement_score || 0) - (a.engagement_score || 0);
 
-      setPosts(allPosts as FeedPost[]);
+        // If scores are similar (within 10 points), sort by recency
+        if (Math.abs(scoreDiff) < 10) {
+          return new Date(b.feed_created_at).getTime() - new Date(a.feed_created_at).getTime();
+        }
+
+        return scoreDiff;
+      });
+
+      // Limit to top 25 posts for performance
+      setPosts(allPosts.slice(0, 25) as FeedPost[]);
 
     } catch (error: any) {
       console.error('Error fetching posts:', error.message || error);
@@ -1238,11 +1290,6 @@ export default function Home() {
 
       // 3. Mark loading as done so UI shows up
       setLoading(false);
-
-      // 4. Then fetch posts if we have a user
-      if (currentUser) {
-        fetchPosts();
-      }
     };
 
     initData();
@@ -1252,14 +1299,20 @@ export default function Home() {
       const newUser = session?.user ?? null;
       setUser(newUser);
       setLoading(false);
-      if (newUser) {
-        // If we switched users (rare, but possible), re-fetch posts
-        fetchPosts();
-      }
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase]); // Removed fetchPosts from dep array to avoid loops, it's stable via useCallback anyway
+  }, [supabase]);
+
+  // Separate effect to fetch posts when user is available
+  useEffect(() => {
+    if (user) {
+      fetchPosts();
+    }
+  }, [user, fetchPosts]);
+
+  // State to track number of new posts
+  const [newPostsCount, setNewPostsCount] = useState(0);
 
   useEffect(() => {
     // Subscribe to forum posts
@@ -1270,9 +1323,15 @@ export default function Home() {
         { event: 'INSERT', schema: 'public', table: 'forum_posts' },
         (payload) => {
           if ((payload.new as any).author_id === user?.id) {
+            // Own post - refresh immediately
+            fetchPosts();
+          } else if (posts.length === 0) {
+            // Feed is empty - auto refresh to show first post
             fetchPosts();
           } else {
+            // Show notification for new posts
             setHasNewPosts(true);
+            setNewPostsCount(prev => prev + 1);
           }
         }
       )
@@ -1286,9 +1345,15 @@ export default function Home() {
         { event: 'INSERT', schema: 'public', table: 'social_posts' },
         (payload) => {
           if ((payload.new as any).author_id === user?.id) {
+            // Own post - refresh immediately
+            fetchPosts();
+          } else if (posts.length === 0) {
+            // Feed is empty - auto refresh to show first post
             fetchPosts();
           } else {
+            // Show notification for new posts
             setHasNewPosts(true);
+            setNewPostsCount(prev => prev + 1);
           }
         }
       )
@@ -1330,14 +1395,24 @@ export default function Home() {
           />
           <PostJobModal isOpen={isJobModalOpen} onOpenChange={setIsJobModalOpen} />
 
-          <div className="grid lg:grid-cols-6 gap-4 items-start">
-            <aside className="lg:col-span-1 pt-6 sticky top-16 hidden lg:block h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar pb-10">
-              <SideNavigation />
+          <div className="grid lg:grid-cols-6 gap-4">
+            {/* Left Sidebar - Navigation */}
+            <aside className="lg:col-span-1 hidden lg:block">
+              <div className="sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar scroll-isolated">
+                <div className="pt-6 pb-10">
+                  <SideNavigation />
+                </div>
+              </div>
             </aside>
 
-            <aside className="lg:col-span-1 pt-6 sticky top-16 hidden lg:block h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar pb-10">
-              <ProfileCard user={user} profile={profile} />
-              <RecentActivityCard />
+            {/* Second Left Sidebar - Profile & Activity */}
+            <aside className="lg:col-span-1 hidden lg:block">
+              <div className="sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar scroll-isolated">
+                <div className="pt-6 pb-10 space-y-4">
+                  <ProfileCard user={user} profile={profile} />
+                  <RecentActivityCard />
+                </div>
+              </div>
             </aside>
 
             <main className="lg:col-span-2 pt-6 space-y-6">
@@ -1380,40 +1455,165 @@ export default function Home() {
 
                 <div className="border-t">
                   {hasNewPosts && (
-                    <div className="flex justify-center py-2 bg-accent/20 border-b">
-                      <Button
-                        onClick={() => {
-                          fetchPosts();
-                          setHasNewPosts(false);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        variant="ghost"
-                        size="sm"
-                        className="rounded-full shadow-sm bg-background text-primary border border-border hover:bg-accent gap-2"
-                      >
-                        <Repeat2 className="h-4 w-4" /> New posts available
-                      </Button>
+                    <div className="relative overflow-hidden">
+                      {/* Animated gradient background */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-secondary/10 to-primary/5 animate-gradient-shift" />
+
+                      <div className="relative flex justify-center py-3 border-b border-primary/10">
+                        <Button
+                          onClick={() => {
+                            fetchPosts();
+                            setHasNewPosts(false);
+                            setNewPostsCount(0);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="group new-post-pulse rounded-full bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 border-0 px-5 py-2 gap-2.5 font-semibold transition-all duration-300 hover:scale-105"
+                        >
+                          <div className="relative">
+                            <Repeat2 className="h-4 w-4 group-hover:rotate-180 transition-transform duration-500" />
+                            {newPostsCount > 0 && (
+                              <div className="absolute -top-2 -right-2 h-4 w-4 bg-white text-primary text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                                {newPostsCount > 9 ? '9+' : newPostsCount}
+                              </div>
+                            )}
+                          </div>
+                          <span className="flex items-center gap-1.5">
+                            {newPostsCount > 1 ? `${newPostsCount} new posts` : 'New post'} available
+                            <TrendingUp className="h-3.5 w-3.5 opacity-70" />
+                          </span>
+                        </Button>
+                      </div>
                     </div>
                   )}
 
                   {
                     loadingPosts ? (
-                      <div className="flex justify-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      /* Beautiful Skeleton Loading Animation */
+                      <div className="space-y-4 pt-4 px-4 animate-pulse">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="bg-background rounded-xl p-4 border border-border/50">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-muted via-muted/80 to-muted animate-shimmer" />
+                              <div className="flex-1 space-y-2">
+                                <div className="h-4 w-32 rounded-full bg-gradient-to-r from-muted to-muted/60" />
+                                <div className="h-3 w-24 rounded-full bg-muted/60" />
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="h-4 w-full rounded-full bg-muted/50" />
+                              <div className="h-4 w-4/5 rounded-full bg-muted/40" />
+                              <div className="h-4 w-3/5 rounded-full bg-muted/30" />
+                            </div>
+                            <div className="flex gap-4 mt-4 pt-4 border-t border-border/30">
+                              <div className="h-8 w-16 rounded-full bg-muted/40" />
+                              <div className="h-8 w-16 rounded-full bg-muted/40" />
+                              <div className="flex-1" />
+                              <div className="h-8 w-16 rounded-full bg-muted/40" />
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : posts.length === 0 ? (
-                      <div className="py-12">
-                        <div className="text-center space-y-2">
-                          <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto" />
-                          <h3 className="font-semibold text-lg">No posts yet</h3>
-                          <p className="text-muted-foreground">Be the first to share something with the community!</p>
-                          <Button variant="outline" size="sm" onClick={fetchPosts} className="mt-4">
-                            Refresh Feed
-                          </Button>
+                      /* Beautiful Empty State with Animated Gradient */
+                      <div className="py-16 px-6">
+                        <div className="relative max-w-md mx-auto">
+                          {/* Animated Background Gradient */}
+                          <div className="absolute inset-0 -m-6 bg-gradient-to-br from-primary/5 via-secondary/5 to-primary/5 rounded-3xl animate-gradient-shift" />
+
+                          <div className="relative text-center space-y-6">
+                            {/* Animated Icon Container */}
+                            <div className="relative inline-flex">
+                              <div className="absolute inset-0 bg-primary/10 rounded-full blur-xl animate-pulse" />
+                              <div className="relative bg-gradient-to-br from-primary/20 to-secondary/20 p-6 rounded-full border border-primary/10">
+                                <div className="relative">
+                                  <MessageSquare className="h-12 w-12 text-primary/60" strokeWidth={1.5} />
+                                  <div className="absolute -top-1 -right-1 h-4 w-4 bg-primary/30 rounded-full flex items-center justify-center">
+                                    <Plus className="h-2.5 w-2.5 text-primary" />
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Floating Decorative Elements */}
+                              <div className="absolute -top-2 -left-4 h-3 w-3 bg-primary/40 rounded-full animate-bounce delay-100" />
+                              <div className="absolute -bottom-3 -right-2 h-2 w-2 bg-secondary/50 rounded-full animate-bounce delay-300" />
+                              <div className="absolute top-1/2 -right-6 h-2.5 w-2.5 bg-primary/30 rounded-full animate-bounce delay-500" />
+                            </div>
+
+                            {/* Text Content */}
+                            <div className="space-y-3">
+                              <h3 className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                                Your Feed is Empty
+                              </h3>
+                              <p className="text-muted-foreground text-base max-w-sm mx-auto leading-relaxed">
+                                Be the first to spark a conversation! Share your thoughts, insights, or discoveries with the community.
+                              </p>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                              <Button
+                                onClick={() => {
+                                  setModalInitialType('social');
+                                  setIsPostModalOpen(true);
+                                }}
+                                className="group relative overflow-hidden bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-primary-foreground font-semibold px-6 py-5 rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300"
+                              >
+                                <span className="relative flex items-center gap-2">
+                                  <Plus className="h-4 w-4" />
+                                  Create Your First Post
+                                </span>
+                              </Button>
+
+                              <Button
+                                variant="outline"
+                                onClick={fetchPosts}
+                                className="group border-2 border-border/50 hover:border-primary/30 hover:bg-primary/5 px-5 py-5 rounded-xl font-medium transition-all duration-300"
+                              >
+                                <Repeat2 className="h-4 w-4 mr-2 group-hover:rotate-180 transition-transform duration-500" />
+                                Refresh Feed
+                              </Button>
+                            </div>
+
+                            {/* Suggested Actions */}
+                            <div className="pt-6 border-t border-border/30 mt-6">
+                              <p className="text-xs text-muted-foreground/60 mb-4 uppercase tracking-wider font-medium">Quick Actions</p>
+                              <div className="flex flex-wrap items-center justify-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setModalInitialType('forum');
+                                    setIsPostModalOpen(true);
+                                  }}
+                                  className="text-xs bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded-full px-4"
+                                >
+                                  <FilePen className="h-3 w-3 mr-1.5" />
+                                  Forum Post
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 rounded-full px-4"
+                                >
+                                  <Calendar className="h-3 w-3 mr-1.5" />
+                                  Create Event
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setIsJobModalOpen(true)}
+                                  className="text-xs bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 rounded-full px-4"
+                                >
+                                  <Newspaper className="h-3 w-3 mr-1.5" />
+                                  Post Job
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-4 pt-4 bg-muted/20">
+                      /* Feed with Staggered Animations */
+                      <div className="space-y-4 pt-4 bg-gradient-to-b from-muted/10 to-muted/30">
                         {(() => {
                           // Final deduplication before rendering
                           const seenFeedIds = new Set<string>();
@@ -1426,8 +1626,15 @@ export default function Home() {
                             return true;
                           });
 
-                          return uniquePosts.map((post) => (
-                            <div className="px-4" key={post.feed_item_id || post.id}>
+                          return uniquePosts.map((post, index) => (
+                            <div
+                              className="px-4 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                              key={post.feed_item_id || post.id}
+                              style={{
+                                animationDelay: `${Math.min(index * 100, 500)}ms`,
+                                animationFillMode: 'both'
+                              }}
+                            >
                               <PostCard
                                 post={post}
                                 currentUserId={user?.id}
@@ -1440,6 +1647,14 @@ export default function Home() {
                             </div>
                           ));
                         })()}
+
+                        {/* End of Feed Indicator */}
+                        <div className="py-8 text-center">
+                          <div className="inline-flex items-center gap-2 text-sm text-muted-foreground/60 bg-muted/30 px-4 py-2 rounded-full">
+                            <Zap className="h-3.5 w-3.5" />
+                            You're all caught up!
+                          </div>
+                        </div>
                       </div>
                     )
                   }
@@ -1448,25 +1663,35 @@ export default function Home() {
 
             </main >
 
-            <aside className="lg:col-span-1 pt-6 sticky top-16 hidden lg:block h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar pb-10">
-              <SuggestedFollows currentUser={user} />
+            {/* Right Sidebar - Suggested Follows */}
+            <aside className="lg:col-span-1 hidden lg:block">
+              <div className="sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar scroll-isolated">
+                <div className="pt-6 pb-10">
+                  <SuggestedFollows currentUser={user} />
+                </div>
+              </div>
             </aside>
 
-            <aside className="lg:col-span-1 pt-6 sticky top-16 hidden lg:block h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar pb-10">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Trending Topics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {sampleTrendingTopics.map(topic => (
-                      <Badge key={topic} variant="outline" className="text-sm font-semibold p-2 hover:bg-muted cursor-pointer">
-                        # {topic}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Far Right Sidebar - Trending Topics */}
+            <aside className="lg:col-span-1 hidden lg:block">
+              <div className="sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar scroll-isolated">
+                <div className="pt-6 pb-10">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Trending Topics</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {sampleTrendingTopics.map(topic => (
+                          <Badge key={topic} variant="outline" className="text-sm font-semibold p-2 hover:bg-muted cursor-pointer">
+                            # {topic}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             </aside>
           </div>
         </div>

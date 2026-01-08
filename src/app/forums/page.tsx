@@ -46,9 +46,21 @@ import {
   Mic,
   Coffee,
   Wrench,
-  HelpCircle
+  HelpCircle,
+  ChevronDown,
+  MoreHorizontal
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
+} from '@/components/ui/dropdown-menu';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -271,40 +283,80 @@ export default function ForumsPage() {
             />
           </div>
 
-          <div className="space-y-6">
+          <div className="flex flex-wrap items-center gap-3 py-2">
             <Button
               variant={selectedCategory === 'all' ? 'default' : 'outline'}
               size="sm"
-              className="rounded-full px-6"
+              className="rounded-xl px-6 h-10 font-bold shadow-sm transition-all"
               onClick={() => setSelectedCategory('all')}
             >
               All Discussions
             </Button>
 
-            {Object.keys(groupedCategories).sort().map(group => (
-              <div key={group} className="space-y-2">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1">
-                  {group}
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {groupedCategories[group].map(cat => {
-                    const Icon = ICON_MAP[cat.icon_name] || MessageSquare;
-                    return (
+            <div className="flex flex-wrap items-center gap-2">
+              {Object.keys(groupedCategories).sort().map(group => {
+                const groupItems = groupedCategories[group];
+                const isGroupActive = groupItems.some(cat => cat.slug === selectedCategory);
+                const activeCategoryName = groupItems.find(cat => cat.slug === selectedCategory)?.name;
+
+                return (
+                  <DropdownMenu key={group}>
+                    <DropdownMenuTrigger asChild>
                       <Button
-                        key={cat.id}
-                        variant={selectedCategory === cat.slug ? 'secondary' : 'ghost'}
+                        variant={isGroupActive ? "secondary" : "outline"}
                         size="sm"
-                        className={`rounded-full gap-2 transition-all ${selectedCategory === cat.slug ? 'bg-primary/10 text-primary font-medium ring-1 ring-primary/20' : 'bg-card border hover:bg-muted/50 text-muted-foreground hover:text-foreground'}`}
-                        onClick={() => setSelectedCategory(cat.slug)}
+                        className={cn(
+                          "rounded-xl gap-2 h-10 px-4 border-muted transition-all",
+                          isGroupActive ? "bg-primary/10 text-primary border-primary/20 font-bold" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                        )}
                       >
-                        <Icon className="h-3 w-3" />
-                        {cat.name}
+                        {isGroupActive ? (
+                          <>
+                            <span className="text-[10px] uppercase opacity-60 mr-1">{group}:</span>
+                            {activeCategoryName}
+                          </>
+                        ) : (
+                          <>
+                            {group}
+                            <ChevronDown className="h-3 w-3 opacity-50" />
+                          </>
+                        )}
                       </Button>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56 rounded-xl p-2 shadow-xl border-muted/50">
+                      <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 px-2 py-1.5">
+                        {group} Specializations
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <ScrollArea className="max-h-[300px]">
+                        {groupItems.map(cat => {
+                          const Icon = ICON_MAP[cat.icon_name] || MessageSquare;
+                          return (
+                            <DropdownMenuItem
+                              key={cat.id}
+                              className={cn(
+                                "rounded-lg flex items-center gap-3 py-3 cursor-pointer",
+                                selectedCategory === cat.slug ? "bg-primary/10 text-primary font-bold" : "text-muted-foreground"
+                              )}
+                              onClick={() => setSelectedCategory(cat.slug)}
+                            >
+                              <div className={cn(
+                                "p-1.5 rounded-md",
+                                selectedCategory === cat.slug ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                              )}>
+                                <Icon className="h-3.5 w-3.5" />
+                              </div>
+                              <span className="flex-1">{cat.name}</span>
+                              {selectedCategory === cat.slug && <Zap className="h-3 w-3 fill-current" />}
+                            </DropdownMenuItem>
+                          )
+                        })}
+                      </ScrollArea>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              })}
+            </div>
           </div>
         </div>
 

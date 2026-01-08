@@ -26,7 +26,11 @@ import {
     Compass,
     Hash,
     Youtube,
-    Code
+    Code,
+    Loader2,
+    Mic,
+    PencilRuler,
+    Calendar
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -44,22 +48,29 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { ResourceUploadModal } from './resource-upload-modal';
+import { ResourceDetailModal } from './resource-detail-modal';
+import { fetchResources } from './actions';
+import { useEffect } from 'react';
 
 // Types for our library
 type ResourceDiscipline = 'General' | 'CSE' | 'Civil' | 'EEE' | 'Textile' | 'Mechanical' | 'Architecture';
 type ResourceCategory =
-    | 'Engineering Codes & Standards'
-    | 'Design Templates & Checklists'
-    | 'Software Manuals'
-    | 'Career Resources'
-    | 'Academic Materials'
-    | 'Discipline-Specific';
+    | 'Academic/Research'
+    | 'Digital & Coding'
+    | 'Visual/Learning'
+    | 'Technical/Design'
+    | 'Industry Standard'
+    | 'Career Growth'
+    | 'Practical Tools';
 
 interface EngineeringResource {
     id: string;
     title: string;
     description: string;
-    type: 'document' | 'template' | 'manual' | 'guide' | 'formula' | 'github' | 'youtube' | 'ieee' | 'research_paper' | 'tool' | 'conference';
+    type:
+    | 'document' | 'template' | 'github' | 'youtube' | 'ieee' | 'research_paper' | 'tool' | 'conference'
+    | 'podcast' | 'cad_blueprint' | 'standard_codes' | 'safety_manual' | 'resume' | 'interview_prep'
+    | 'certification_prep' | 'excel_calc' | 'case_study';
     category: ResourceCategory;
     discipline: ResourceDiscipline;
     author: string;
@@ -78,7 +89,7 @@ const SAMPLE_RESOURCES: EngineeringResource[] = [
         title: 'BNBC 2020: Part 6 (Structural Design)',
         description: 'The definitive Bangladesh National Building Code for structural engineering and safety standards.',
         type: 'document',
-        category: 'Engineering Codes & Standards',
+        category: 'Industry Standard',
         discipline: 'Civil',
         author: 'PWD Bangladesh',
         fileSize: '12.4 MB',
@@ -92,7 +103,7 @@ const SAMPLE_RESOURCES: EngineeringResource[] = [
         title: 'AutoCAD Standard Layer Protocol',
         description: 'Complete layer management template and block library for professional architectural drawings.',
         type: 'template',
-        category: 'Design Templates & Checklists',
+        category: 'Technical/Design',
         discipline: 'Architecture',
         author: 'Elite Designs',
         fileSize: '2.1 MB',
@@ -106,7 +117,7 @@ const SAMPLE_RESOURCES: EngineeringResource[] = [
         title: 'ATS-Friendly Engineer Resume Template',
         description: 'High-conversion CV template specifically optimized for technical recruitment systems.',
         type: 'template',
-        category: 'Career Resources',
+        category: 'Career Growth',
         discipline: 'General',
         author: 'HR Experts',
         fileSize: '450 KB',
@@ -120,8 +131,8 @@ const SAMPLE_RESOURCES: EngineeringResource[] = [
         id: '4',
         title: 'Structural Load Calculation (Excel)',
         description: 'Automated calculation sheet for dead, live, and wind loads following BNBC guidelines.',
-        type: 'template',
-        category: 'Design Templates & Checklists',
+        type: 'excel_calc',
+        category: 'Practical Tools',
         discipline: 'Civil',
         author: 'Engr. Rakib',
         fileSize: '1.2 MB',
@@ -134,8 +145,8 @@ const SAMPLE_RESOURCES: EngineeringResource[] = [
         id: '5',
         title: 'Kubernetes Cheat Sheet for Devs',
         description: 'A comprehensive guide to common K8s commands, configurations, and troubleshooting steps.',
-        type: 'manual',
-        category: 'Software Manuals',
+        type: 'document',
+        category: 'Technical/Design',
         discipline: 'CSE',
         author: 'Open Source Community',
         fileSize: '890 KB',
@@ -149,7 +160,7 @@ const SAMPLE_RESOURCES: EngineeringResource[] = [
         title: 'Finite Element Analysis Solver (Python)',
         description: 'Open-source FEA solver for 2D/3D truss and frame structures. Includes full source code and documentation.',
         type: 'github',
-        category: 'Discipline-Specific',
+        category: 'Digital & Coding',
         discipline: 'Mechanical',
         author: 'MechMasters Org',
         url: 'https://github.com/example/fea-python',
@@ -162,7 +173,7 @@ const SAMPLE_RESOURCES: EngineeringResource[] = [
         title: 'ETABS 21 Masterclass: High-Rise Modeling',
         description: 'Advanced tutorial on seismic analysis and modeling of 40-story building using ETABS 21.',
         type: 'youtube',
-        category: 'Software Manuals',
+        category: 'Visual/Learning',
         discipline: 'Civil',
         author: 'Engr. Academy',
         url: 'https://youtube.com/watch?v=example',
@@ -175,7 +186,7 @@ const SAMPLE_RESOURCES: EngineeringResource[] = [
         title: 'Interactive Psychrometric Chart',
         description: 'Web-based interactive tool for calculating moist air properties. Essential for HVAC design.',
         type: 'tool',
-        category: 'Design Templates & Checklists',
+        category: 'Practical Tools',
         discipline: 'Mechanical',
         author: 'HVAC Labs',
         url: 'https://example-tool.com',
@@ -189,24 +200,32 @@ const ResourceIcon = ({ type }: { type: string }) => {
     switch (type) {
         case 'github': return <Github className="h-12 w-12 text-slate-800 dark:text-slate-200" />;
         case 'youtube': return <Youtube className="h-12 w-12 text-red-600" />;
+        case 'podcast': return <Mic className="h-12 w-12 text-pink-600" />;
         case 'ieee':
         case 'research_paper': return <GraduationCap className="h-12 w-12 text-indigo-600" />;
         case 'tool': return <Code className="h-12 w-12 text-emerald-600" />;
-        case 'template': return <Layout className="h-12 w-12 text-amber-500/80" />;
-        case 'manual': return <Wrench className="h-12 w-12 text-emerald-500/80" />;
-        case 'guide': return <Compass className="h-12 w-12 text-rose-500/80" />;
-        case 'formula': return <Binary className="h-12 w-12 text-violet-500/80" />;
+        case 'template':
+        case 'excel_calc': return <Layout className="h-12 w-12 text-amber-500/80" />;
+        case 'cad_blueprint': return <PencilRuler className="h-12 w-12 text-blue-600" />;
+        case 'standard_codes':
+        case 'safety_manual': return <ShieldCheck className="h-12 w-12 text-emerald-500/80" />;
+        case 'resume':
+        case 'interview_prep':
+        case 'certification_prep': return <Briefcase className="h-12 w-12 text-blue-500/80" />;
+        case 'case_study': return <BookOpen className="h-12 w-12 text-orange-500" />;
+        case 'conference': return <Calendar className="h-12 w-12 text-rose-500" />;
         default: return <FileText className="h-12 w-12 text-blue-500/80" />;
     }
 };
 
 const CATEGORIES: { name: ResourceCategory; icon: any; description: string }[] = [
-    { name: 'Engineering Codes & Standards', icon: ShieldCheck, description: 'ISO, IEEE, BNBC, Safety Codes' },
-    { name: 'Design Templates & Checklists', icon: Layout, description: 'CAD, Calculation Sheets, QC Forms' },
-    { name: 'Software Manuals', icon: Wrench, description: 'Cheat-sheets, Troubleshooting Guides' },
-    { name: 'Career Resources', icon: Briefcase, description: 'Resume Templates, Interview Prep' },
-    { name: 'Academic Materials', icon: GraduationCap, description: 'Handbooks, Research Papers' },
-    { name: 'Discipline-Specific', icon: Compass, description: 'Technical documentation by field' },
+    { name: 'Academic/Research', icon: GraduationCap, description: 'Papers, IEEE, Conferences' },
+    { name: 'Digital & Coding', icon: Code, description: 'GitHub, Interactive Tools' },
+    { name: 'Visual/Learning', icon: Youtube, description: 'Videos, Podcasts' },
+    { name: 'Technical/Design', icon: Layout, description: 'Technical Docs, CAD, Templates' },
+    { name: 'Industry Standard', icon: ShieldCheck, description: 'BNBC, ISO, Safety Codes' },
+    { name: 'Career Growth', icon: Briefcase, description: 'Resume, Interview, Certifications' },
+    { name: 'Practical Tools', icon: Wrench, description: 'Excel sheets, Case Studies' },
 ];
 
 const DISCIPLINES: { name: ResourceDiscipline; icon: any }[] = [
@@ -220,24 +239,79 @@ const DISCIPLINES: { name: ResourceDiscipline; icon: any }[] = [
 ];
 
 export default function ResourcesPage() {
+    const [resources, setResources] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<ResourceCategory | 'All'>('All');
     const [selectedDiscipline, setSelectedDiscipline] = useState<ResourceDiscipline | 'All'>('All');
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [selectedResource, setSelectedResource] = useState<any>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-    const filteredResources = useMemo(() => {
-        return SAMPLE_RESOURCES.filter(r => {
-            const matchesSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                r.description.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesCategory = selectedCategory === 'All' || r.category === selectedCategory;
-            const matchesDiscipline = selectedDiscipline === 'All' || r.discipline === selectedDiscipline;
-            return matchesSearch && matchesCategory && matchesDiscipline;
-        });
+    const handleResourceClick = (resource: any) => {
+        setSelectedResource(resource);
+        setIsDetailModalOpen(true);
+    };
+
+    useEffect(() => {
+        const loadResources = async () => {
+            setLoading(true);
+            try {
+                const data = await fetchResources({
+                    category: selectedCategory,
+                    discipline: selectedDiscipline,
+                    query: searchQuery
+                });
+
+                // Merge static samples with live data for a full view, or just use live data
+                // For now, let's use live data but map it to EngineeringResource format
+                const liveResources = data?.map((r: any) => ({
+                    id: r.id,
+                    title: r.title,
+                    description: r.description,
+                    type: r.resource_type,
+                    category: r.category,
+                    discipline: r.discipline,
+                    author: r.profiles?.full_name || 'Anonymous',
+                    url: r.github_url || r.youtube_url || r.ieee_url || r.external_url || r.embed_url,
+                    youtube_url: r.youtube_url,
+                    github_url: r.github_url,
+                    ieee_url: r.ieee_url,
+                    external_url: r.external_url,
+                    embed_url: r.embed_url,
+                    downloads: r.download_count || 0,
+                    views: r.view_count || 0,
+                    date: new Date(r.created_at).toLocaleDateString(),
+                    isPremium: r.is_premium,
+                    tags: r.tags || []
+                })) || [];
+
+                // Optionally mix with samples if there's no data yet to keep it looking good
+                setResources(liveResources.length > 0 ? liveResources : []);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const timer = setTimeout(() => {
+            loadResources();
+        }, 500); // Debounce search
+
+        return () => clearTimeout(timer);
     }, [searchQuery, selectedCategory, selectedDiscipline]);
+
+    const filteredResources = resources;
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-7xl">
             <ResourceUploadModal isOpen={isUploadModalOpen} onOpenChange={setIsUploadModalOpen} />
+            <ResourceDetailModal
+                isOpen={isDetailModalOpen}
+                onOpenChange={setIsDetailModalOpen}
+                resource={selectedResource}
+            />
 
             {/* Header Section */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
@@ -370,11 +444,19 @@ export default function ResourcesPage() {
 
                     {/* Resource Grid */}
                     <div className="grid gap-5">
-                        {filteredResources.length > 0 ? (
+                        {loading ? (
+                            <div className="flex flex-col items-center justify-center py-24 space-y-4">
+                                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                <p className="text-muted-foreground font-medium">Accessing Engineering Vault...</p>
+                            </div>
+                        ) : filteredResources.length > 0 ? (
                             filteredResources.map((resource) => (
                                 <Card key={resource.id} className="group overflow-hidden rounded-2xl border-muted/60 hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 bg-background/40 backdrop-blur-sm">
                                     <div className="flex flex-col md:flex-row">
-                                        <div className="w-full md:w-48 bg-muted/20 flex items-center justify-center p-6 border-b md:border-b-0 md:border-r border-border/50 group-hover:bg-primary/5 transition-colors">
+                                        <div
+                                            className="w-full md:w-48 bg-muted/20 flex items-center justify-center p-6 border-b md:border-b-0 md:border-r border-border/50 group-hover:bg-primary/5 transition-colors cursor-pointer"
+                                            onClick={() => handleResourceClick(resource)}
+                                        >
                                             <ResourceIcon type={resource.type} />
                                         </div>
                                         <CardContent className="flex-1 p-6">
@@ -393,7 +475,12 @@ export default function ResourcesPage() {
                                                     </div>
                                                 )}
                                             </div>
-                                            <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors cursor-pointer">{resource.title}</h3>
+                                            <h3
+                                                className="text-xl font-bold mb-2 group-hover:text-primary transition-colors cursor-pointer"
+                                                onClick={() => handleResourceClick(resource)}
+                                            >
+                                                {resource.title}
+                                            </h3>
                                             <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
                                                 {resource.description}
                                             </p>
@@ -433,7 +520,7 @@ export default function ResourcesPage() {
                                                 className="rounded-xl h-11 w-11 md:w-auto md:px-6 shadow-sm group/btn bg-primary hover:bg-primary/90 transition-all cursor-pointer"
                                             >
                                                 <a href={resource.url || '#'} target="_blank" rel="noopener noreferrer">
-                                                    {['github', 'youtube', 'tool', 'ieee', 'research_paper'].includes(resource.type) ? (
+                                                    {['github', 'youtube', 'tool', 'ieee', 'research_paper', 'podcast', 'conference'].includes(resource.type) || resource.url?.startsWith('http') ? (
                                                         <ExternalLink className="h-5 w-5 md:mr-2 group-hover/btn:scale-110 transition-transform" />
                                                     ) : (
                                                         <Download className="h-5 w-5 md:mr-2 group-hover/btn:translate-y-0.5 transition-transform" />
@@ -441,7 +528,8 @@ export default function ResourcesPage() {
                                                     <span className="hidden md:inline">
                                                         {resource.type === 'github' ? 'View Repo' :
                                                             resource.type === 'youtube' ? 'Watch' :
-                                                                resource.type === 'tool' ? 'Open Tool' : 'Access'}
+                                                                resource.type === 'tool' ? 'Open Tool' :
+                                                                    resource.url?.startsWith('http') ? 'Visit Link' : 'Access'}
                                                     </span>
                                                 </a>
                                             </Button>

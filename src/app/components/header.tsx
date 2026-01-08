@@ -69,13 +69,13 @@ const secondaryLinks = [
 ]
 
 
-function DesktopNav({ user, counts }: { user: SupabaseUser | null, counts: { notifications: number, messages: number } }) {
+function DesktopNav({ user, profile, counts }: { user: SupabaseUser | null, profile: any, counts: { notifications: number, messages: number } }) {
     const pathname = usePathname();
     const isAuthenticated = !!user;
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background hidden md:block">
-            <div className="container flex h-16 items-center px-4 sm:px-6 lg:px-8 max-w-screen-2xl mx-auto">
+            <div className="flex h-16 items-center px-4 sm:px-6 lg:px-3 max-w-screen-2xl mx-auto w-full">
                 <div className="flex items-center gap-4">
                     <Link href="/" className="flex items-center gap-2">
                         <Logo className="h-12 w-auto min-w-[48px]" />
@@ -131,7 +131,7 @@ function DesktopNav({ user, counts }: { user: SupabaseUser | null, counts: { not
                                     <span className="text-amber-700 underline">Try Premium</span>
                                 </div>
                             </div>
-                            <UserNav user={user} />
+                            <UserNav user={user} profile={profile} />
                         </div>
                     </>
                 ) : (
@@ -149,7 +149,7 @@ function DesktopNav({ user, counts }: { user: SupabaseUser | null, counts: { not
     )
 }
 
-function MobileNav({ user, counts }: { user: SupabaseUser | null, counts: { notifications: number, messages: number } }) {
+function MobileNav({ user, profile, counts }: { user: SupabaseUser | null, profile: any, counts: { notifications: number, messages: number } }) {
     const supabase = createClient();
     const router = useRouter();
     const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
@@ -160,13 +160,13 @@ function MobileNav({ user, counts }: { user: SupabaseUser | null, counts: { noti
         router.refresh();
     };
 
-    const displayName = user?.user_metadata?.full_name || user?.email || sampleUserProfile.name;
-    const avatarUrl = user?.user_metadata?.avatar_url || profilePic?.imageUrl;
+    const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || sampleUserProfile.name;
+    const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || null;
 
     return (
         <>
             <header className="fixed top-0 left-0 right-0 z-50 w-full border-b bg-background md:hidden">
-                <div className="container flex h-16 items-center px-4">
+                <div className="flex h-16 items-center px-3 w-full">
                     <Sheet>
                         <SheetTrigger asChild>
                             <Button variant="ghost" size="icon">
@@ -335,6 +335,7 @@ function MobileNav({ user, counts }: { user: SupabaseUser | null, counts: { noti
 export function Header() {
     const isMobile = useIsMobile();
     const [user, setUser] = useState<SupabaseUser | null>(null);
+    const [profile, setProfile] = useState<any>(null);
     const supabase = createClient();
     const { unreadCount: unreadNotifications } = useNotifications();
     const { unreadCount: unreadMessages } = useMessages();
@@ -345,11 +346,11 @@ export function Header() {
     };
 
     useEffect(() => {
-        const getUser = async () => {
+        const getInitialSession = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
         };
-        getUser();
+        getInitialSession();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
@@ -358,9 +359,29 @@ export function Header() {
         return () => subscription.unsubscribe();
     }, [supabase]);
 
+    useEffect(() => {
+        const getProfile = async () => {
+            if (user) {
+                try {
+                    const { data, error } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', user.id)
+                        .single();
+                    if (!error) setProfile(data);
+                } catch (err) {
+                    console.error("Header profile fetch error:", err);
+                }
+            } else {
+                setProfile(null);
+            }
+        };
+        getProfile();
+    }, [user, supabase]);
+
     if (isMobile === undefined) {
         return <div className="h-16 w-full hidden md:block" />;
     }
 
-    return isMobile ? <MobileNav user={user} counts={counts} /> : <DesktopNav user={user} counts={counts} />;
+    return isMobile ? <MobileNav user={user} profile={profile} counts={counts} /> : <DesktopNav user={user} profile={profile} counts={counts} />;
 }

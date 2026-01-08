@@ -76,7 +76,7 @@ export function EditPostModal({ isOpen, onOpenChange, post, onSuccess }: EditPos
     }, [isOpen, supabase]);
 
     const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'User';
-    const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || profilePic?.imageUrl;
+    const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || null;
 
     const handleUpdate = async () => {
         if (!postContent.trim()) {

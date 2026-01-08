@@ -123,7 +123,7 @@ function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
   const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
 
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'User';
-  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || profilePic?.imageUrl;
+  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || null;
   const coverUrl = profile?.cover_url || null;
 
   const profileUrl = user ? `/users/${user.id}` : '/login';
@@ -940,7 +940,7 @@ const subNavLinks = [
 function NavItem({ icon: Icon, label, active, indent }: { icon: any, label: string, active?: boolean, indent?: boolean }) {
   return (
     <div className={cn(
-      "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 group text-[14px] font-medium",
+      "flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer transition-all duration-200 group text-[14px] font-medium",
       active
         ? "bg-accent text-primary font-bold"
         : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
@@ -954,7 +954,7 @@ function NavItem({ icon: Icon, label, active, indent }: { icon: any, label: stri
 
 function SectionHeader({ label, collapsible = true }: { label: string, collapsible?: boolean }) {
   return (
-    <div className="flex items-center justify-between px-3 mb-2 mt-4 cursor-pointer group">
+    <div className="flex items-center justify-between px-2 mb-2 mt-4 cursor-pointer group">
       <h3 className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-[0.12em]">{label}</h3>
       {collapsible && <ChevronDown className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground" />}
     </div>
@@ -982,7 +982,7 @@ function SideNavigation() {
         <SectionHeader label="Engineers' Pick" />
 
         {/* Yellow Featured Featured Card (Reddit style) */}
-        <div className="px-2 mb-4">
+        <div className="px-1 mb-4">
           <div className="bg-yellow-400 rounded-2xl p-3.5 text-black relative overflow-hidden group cursor-pointer shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200">
             <div className="absolute top-0 right-[-2px] bg-orange-600 text-white text-[10px] font-extrabold px-3 py-0.5 rounded-bl-xl shadow-sm z-10">NEW</div>
             <div className="flex items-center gap-3">
@@ -1008,7 +1008,7 @@ function SideNavigation() {
         <SectionHeader label="Your Society" />
         <NavItem icon={Plus} label="Create Custom Feed" />
 
-        <div className="flex items-center justify-between group px-3 py-2 rounded-lg hover:bg-accent cursor-pointer transition-colors">
+        <div className="flex items-center justify-between group px-2 py-2 rounded-lg hover:bg-accent cursor-pointer transition-colors">
           <div className="flex items-center gap-3">
             <div className="bg-green-600 h-6 w-6 rounded-md flex items-center justify-center text-white font-bold text-[10px] shadow-sm">EF</div>
             <span className="text-[14px] font-medium">Design Systems</span>
@@ -1110,69 +1110,160 @@ export default function Home() {
 
     setLoadingPosts(true);
     try {
-      const { data, error } = await supabase
-        .from('feed_posts_view')
-        .select('*')
-        .order('feed_created_at', { ascending: false })
+      // Fetch forum posts
+      const { data: forumData, error: forumError } = await supabase
+        .from('forum_posts')
+        .select(`
+          id,
+          title,
+          content,
+          created_at,
+          author_id,
+          slug,
+          view_count,
+          likes: post_likes(count),
+          comments: comments(count)
+        `)
+        .order('created_at', { ascending: false })
         .limit(20);
 
-      if (error) throw error;
+      if (forumError) throw forumError;
 
-      if (data) {
-        // We use feed_item_id for unique identification to allow same post to appear as a repost
-        const seenFeedIds = new Set<string>();
-        const uniquePosts = data.filter((post: any) => {
-          const feedId = post.feed_item_id || post.id;
-          if (!feedId || seenFeedIds.has(feedId)) {
-            return false;
-          }
-          seenFeedIds.add(feedId);
-          return true;
-        });
-        setPosts(uniquePosts);
-      }
+      // Fetch social posts
+      const { data: socialData, error: socialError } = await supabase
+        .from('social_posts')
+        .select(`
+          id,
+          content,
+          created_at,
+          author_id,
+          likes: social_post_likes(count),
+          comments: social_post_comments(count)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (socialError) throw socialError;
+
+      // Get all unique author IDs to fetch profiles
+      const authorIds = new Set<string>();
+      forumData?.forEach(p => authorIds.add(p.author_id));
+      socialData?.forEach(p => authorIds.add(p.author_id));
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, job_title')
+        .in('id', Array.from(authorIds));
+
+      const profilesMap = new Map(profiles?.map(p => [p.id, p]));
+
+      // Transform and merge posts
+      const formattedForumPosts = (forumData || []).map(post => {
+        const author = profilesMap.get(post.author_id);
+        return {
+          id: post.id,
+          feed_item_id: `forum-${post.id}`,
+          title: post.title,
+          content: post.content,
+          created_at: post.created_at,
+          feed_created_at: post.created_at, // Use created_at for sorting
+          view_count: post.view_count || 0,
+          slug: post.slug,
+          author_id: post.author_id,
+          author_name: author?.full_name || 'Unknown',
+          author_avatar: author?.avatar_url,
+          author_title: author?.job_title,
+          post_type: 'forum',
+          item_type: 'post',
+          like_count: post.likes?.[0]?.count || 0,
+          comment_count: post.comments?.[0]?.count || 0,
+        };
+      });
+
+      const formattedSocialPosts = (socialData || []).map(post => {
+        const author = profilesMap.get(post.author_id);
+        return {
+          id: post.id,
+          feed_item_id: `social-${post.id}`,
+          content: post.content,
+          created_at: post.created_at,
+          feed_created_at: post.created_at,
+          author_id: post.author_id,
+          author_name: author?.full_name || 'Unknown',
+          author_avatar: author?.avatar_url,
+          author_title: author?.job_title,
+          post_type: 'social',
+          item_type: 'post',
+          like_count: post.likes?.[0]?.count || 0,
+          comment_count: post.comments?.[0]?.count || 0,
+          title: null,
+          slug: '',
+          view_count: 0,
+        };
+      });
+
+      // Merge and sort
+      const allPosts = [...formattedForumPosts, ...formattedSocialPosts].sort((a, b) =>
+        new Date(b.feed_created_at).getTime() - new Date(a.feed_created_at).getTime()
+      );
+
+      setPosts(allPosts as FeedPost[]);
+
     } catch (error: any) {
       console.error('Error fetching posts:', error.message || error);
-      if (error.details) console.error('Error details:', error.details);
-      if (error.hint) console.error('Error hint:', error.hint);
     } finally {
       setLoadingPosts(false);
     }
   }, [user, supabase]);
 
   useEffect(() => {
-    const getUserAndProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+    // Initial data fetch
+    const initData = async () => {
+      // 1. Get current session first
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
 
-      if (user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        setProfile(profileData);
+      // 2. Fetch profile if user exists
+      if (currentUser) {
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+          setProfile(profileData);
+        } catch (e) {
+          console.error("Profile fetch error", e);
+        }
       }
 
+      // 3. Mark loading as done so UI shows up
       setLoading(false);
-    };
-    getUserAndProfile();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
-        setLoading(false);
+      // 4. Then fetch posts if we have a user
+      if (currentUser) {
+        fetchPosts();
+      }
+    };
+
+    initData();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const newUser = session?.user ?? null;
+      setUser(newUser);
+      setLoading(false);
+      if (newUser) {
+        // If we switched users (rare, but possible), re-fetch posts
+        fetchPosts();
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, [supabase]); // Removed fetchPosts from dep array to avoid loops, it's stable via useCallback anyway
 
   useEffect(() => {
-    if (user) {
-      fetchPosts();
-    }
-
     // Subscribe to forum posts
     const forumChannel = supabase
       .channel(`forum-posts-changes`)
@@ -1197,7 +1288,7 @@ export default function Home() {
       supabase.removeChannel(forumChannel);
       supabase.removeChannel(socialChannel);
     };
-  }, [user, supabase]);
+  }, [supabase, fetchPosts]);
 
   if (loading) {
     return (
@@ -1211,34 +1302,35 @@ export default function Home() {
     return <LandingHero />;
   }
 
-  const displayName = user?.user_metadata?.full_name || user?.email || 'User';
-  const avatarUrl = user?.user_metadata?.avatar_url || profilePic?.imageUrl;
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'User';
+  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || null;
   const isHomePage = pathname === '/';
   const profileUrl = user ? `/users/${user.id}` : '/login';
 
   return (
     <>
-      <div className="p-4 sm:p-6 lg:p-8 bg-muted/40">
-        <div className="w-full mx-auto px-4 lg:px-6">
+      <div className="p-2 sm:p-4 lg:pb-6 lg:pr-6 lg:pl-2 lg:pt-0 bg-muted/40 font-body">
+        <div className="w-full mx-auto px-1 lg:pl-1 lg:pr-2">
           <CreatePostModal
             isOpen={isPostModalOpen}
             initialType={modalInitialType}
             onOpenChange={setIsPostModalOpen}
             onSuccess={fetchPosts}
+            profile={profile}
           />
           <PostJobModal isOpen={isJobModalOpen} onOpenChange={setIsJobModalOpen} />
 
-          <div className="grid lg:grid-cols-6 gap-6 items-start">
-            <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block overflow-y-auto max-h-[calc(100vh-100px)] custom-scrollbar pr-1">
+          <div className="grid lg:grid-cols-6 gap-4 items-start">
+            <aside className="lg:col-span-1 pt-6 sticky top-16 hidden lg:block h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar pb-10">
               <SideNavigation />
             </aside>
 
-            <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
+            <aside className="lg:col-span-1 pt-6 sticky top-16 hidden lg:block h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar pb-10">
               <ProfileCard user={user} profile={profile} />
               <RecentActivityCard />
             </aside>
 
-            <main className="lg:col-span-2 space-y-6">
+            <main className="lg:col-span-2 pt-6 space-y-6">
               <Card className="overflow-hidden">
                 <CardHeader className="flex flex-row items-center gap-4">
                   <Link href={profileUrl}>
@@ -1326,11 +1418,11 @@ export default function Home() {
 
             </main >
 
-            <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
+            <aside className="lg:col-span-1 pt-6 sticky top-16 hidden lg:block h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar pb-10">
               <SuggestedFollows currentUser={user} />
             </aside>
 
-            <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
+            <aside className="lg:col-span-1 pt-6 sticky top-16 hidden lg:block h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar pb-10">
               <Card>
                 <CardHeader>
                   <CardTitle>Trending Topics</CardTitle>

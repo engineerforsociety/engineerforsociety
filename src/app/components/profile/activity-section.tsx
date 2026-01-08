@@ -102,8 +102,8 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
         .limit(10);
 
       if (activeTab === 'posts') {
-        // Fetch both 'post' (forum), 'social_post' (social), and 'repost'
-        query = query.in('activity_type', ['post', 'social_post', 'repost']);
+        // Fetch 'forum_post' (from forum_posts), 'social_post', and 'repost'
+        query = query.in('activity_type', ['forum_post', 'social_post', 'repost']);
       } else if (activeTab === 'comments') {
         query = query.eq('activity_type', 'comment');
       } else if (activeTab === 'articles') {
@@ -259,7 +259,7 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
                                 Commented on "{activity.post_title}"
                               </span>
                             ) : null}
-                            {activity.activity_type === 'comment' ? activity.comment_content : activity.post_content}
+                            {activity.activity_type === 'comment' ? activity.comment_content : (activity.post_content || activity.activity_data?.post_content)}
                           </p>
 
                           {activity.activity_type === 'repost' && (
@@ -276,7 +276,7 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
                               </div>
                               <h4 className="font-bold text-[13px] line-clamp-1">{activity.post_title}</h4>
                               <p className="text-[12px] text-muted-foreground line-clamp-2">
-                                {activity.post_content}
+                                {activity.post_content || activity.activity_data?.post_content}
                               </p>
                             </div>
                           )}

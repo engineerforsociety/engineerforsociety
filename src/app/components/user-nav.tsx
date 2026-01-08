@@ -18,7 +18,7 @@ import { createClient } from '@/lib/supabase/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 
-export function UserNav({ user }: { user: SupabaseUser | null }) {
+export function UserNav({ user, profile }: { user: SupabaseUser | null, profile: any }) {
     const supabase = createClient();
     const router = useRouter();
     const profilePic = PlaceHolderImages.find(p => p.id === 'profile-pic');
@@ -28,8 +28,8 @@ export function UserNav({ user }: { user: SupabaseUser | null }) {
         router.push('/login');
     };
 
-    const displayName = user?.user_metadata?.full_name || user?.email || 'User';
-    const avatarUrl = user?.user_metadata?.avatar_url || profilePic?.imageUrl;
+    const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'User';
+    const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || null;
 
     const profileUrl = user ? `/users/${user.id}` : '/login';
 

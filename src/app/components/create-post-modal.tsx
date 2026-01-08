@@ -52,10 +52,11 @@ type CreatePostModalProps = {
   onOpenChange: (isOpen: boolean) => void;
   initialType?: 'social' | 'forum';
   onSuccess?: () => void;
+  profile?: any;
 };
 
-export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess }: CreatePostModalProps) {
-  const profilePic = PlaceHolderImages.find((p) => p.id === 'profile-pic');
+export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, profile: initialProfile }: CreatePostModalProps) {
+  // Use a default icon or null instead of the dummy Unsplash placeholder
   const [postContent, setPostContent] = useState('');
   const [title, setTitle] = useState('');
   const [postType, setPostType] = useState<'social' | 'forum'>(initialType || 'social');
@@ -64,7 +65,7 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess }
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [isPosting, setIsPosting] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(initialProfile);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [linkUrl, setLinkUrl] = useState('');
@@ -127,10 +128,16 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess }
     if (isOpen) {
       getUserAndProfile();
     }
-  }, [isOpen, supabase]);
+  }, [isOpen, supabase, initialProfile]);
+
+  useEffect(() => {
+    if (initialProfile) {
+      setProfile(initialProfile);
+    }
+  }, [initialProfile]);
 
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'User';
-  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || profilePic?.imageUrl;
+  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || null;
 
   const handlePost = async () => {
     if (!postContent.trim()) {

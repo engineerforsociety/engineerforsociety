@@ -25,6 +25,18 @@ import {
   Trash2,
   Loader2,
   Repeat2,
+  Home as HomeIcon,
+  TrendingUp,
+  Compass,
+  Activity,
+  ChevronDown,
+  Star,
+  Gamepad2,
+  Trophy,
+  Zap,
+  Globe,
+  Settings2,
+  Hash
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
@@ -919,43 +931,113 @@ function PostCard({ post, currentUserId, onRefresh, onEdit }: { post: FeedPost; 
 }
 
 const subNavLinks = [
-  { href: '/forums', label: 'Forums', icon: Users },
+  { href: '/forums', label: 'Forums', icon: MessageSquare },
   { href: '/podcasts', label: 'Podcasts', icon: Podcast },
   { href: '/resources', label: 'Resources', icon: BookOpen },
   { href: '/events', label: 'Events', icon: Calendar },
 ]
 
-function SubNav() {
-  const pathname = usePathname();
+function NavItem({ icon: Icon, label, active, indent }: { icon: any, label: string, active?: boolean, indent?: boolean }) {
   return (
-    <>
-      <div className="bg-card border-b fixed top-16 left-0 right-0 z-40 w-full md:sticky">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-          <div className="flex justify-center items-center h-14">
-            <nav className="flex space-x-6">
-              {subNavLinks.map((link) => {
-                const isActive = pathname === link.href;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={cn(
-                      "flex items-center gap-2 text-sm font-medium transition-colors",
-                      isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <link.icon className="h-5 w-5" />
-                    <span>{link.label}</span>
-                  </Link>
-                )
-              })}
-            </nav>
+    <div className={cn(
+      "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 group text-[14px] font-medium",
+      active
+        ? "bg-accent text-primary font-bold"
+        : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
+      indent && "ml-4"
+    )}>
+      <Icon className={cn("h-[20px] w-[20px]", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+      <span>{label}</span>
+    </div>
+  )
+}
+
+function SectionHeader({ label, collapsible = true }: { label: string, collapsible?: boolean }) {
+  return (
+    <div className="flex items-center justify-between px-3 mb-2 mt-4 cursor-pointer group">
+      <h3 className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-[0.12em]">{label}</h3>
+      {collapsible && <ChevronDown className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground" />}
+    </div>
+  )
+}
+
+function SideNavigation() {
+  const pathname = usePathname();
+
+  return (
+    <div className="flex flex-col gap-2 py-2">
+      {/* Top Main Nav */}
+      <nav className="space-y-0.5">
+        <NavItem icon={HomeIcon} label="Home" active={pathname === '/'} />
+        <NavItem icon={TrendingUp} label="Popular" />
+        <NavItem icon={Compass} label="Explore" />
+        <NavItem icon={Activity} label="All Activity" />
+        <NavItem icon={Plus} label="Start a community" />
+      </nav>
+
+      <Separator className="my-2 bg-border/50" />
+
+      {/* Featured Section */}
+      <div className="space-y-1">
+        <SectionHeader label="Engineers' Pick" />
+
+        {/* Yellow Featured Featured Card (Reddit style) */}
+        <div className="px-2 mb-4">
+          <div className="bg-yellow-400 rounded-2xl p-3.5 text-black relative overflow-hidden group cursor-pointer shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200">
+            <div className="absolute top-0 right-[-2px] bg-orange-600 text-white text-[10px] font-extrabold px-3 py-0.5 rounded-bl-xl shadow-sm z-10">NEW</div>
+            <div className="flex items-center gap-3">
+              <div className="bg-white rounded-2xl h-11 w-11 flex items-center justify-center font-black text-2xl shadow-inner text-yellow-500">S</div>
+              <div className="flex-1">
+                <p className="font-bold text-[15px] leading-tight">Career Hub</p>
+                <p className="text-[11px] font-semibold opacity-70">Expert Mentorship</p>
+                <p className="text-[10px] font-medium opacity-50 mt-0.5 truncate">1.2M monthly aspirants</p>
+              </div>
+            </div>
           </div>
         </div>
+
+        <NavItem icon={Gamepad2} label="Logic Puzzles" indent />
+        <NavItem icon={Trophy} label="Active Hackathons" indent />
+        <NavItem icon={Zap} label="Discover Skills" indent />
       </div>
-      {/* Spacer to prevent content from jumping under fixed subnav on mobile */}
-      <div className="h-14 md:hidden" aria-hidden="true" />
-    </>
+
+      <Separator className="my-2 bg-border/50" />
+
+      {/* Custom Links Feeds */}
+      <div className="space-y-0.5">
+        <SectionHeader label="Your Society" />
+        <NavItem icon={Plus} label="Create Custom Feed" />
+
+        <div className="flex items-center justify-between group px-3 py-2 rounded-lg hover:bg-accent cursor-pointer transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="bg-green-600 h-6 w-6 rounded-md flex items-center justify-center text-white font-bold text-[10px] shadow-sm">EF</div>
+            <span className="text-[14px] font-medium">Design Systems</span>
+          </div>
+          <Star className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </div>
+
+      <Separator className="my-2 bg-border/50" />
+
+      {/* Topics */}
+      <div className="space-y-0.5">
+        <SectionHeader label="Global Topics" />
+        {subNavLinks.map(link => (
+          <Link key={link.href} href={link.href}>
+            <NavItem icon={link.icon} label={link.label} />
+          </Link>
+        ))}
+        <NavItem icon={Globe} label="View Global Map" />
+      </div>
+
+      <Separator className="my-2 bg-border/50" />
+
+      {/* Settings */}
+      <div className="space-y-0.5">
+        <SectionHeader label="Preferences" />
+        <NavItem icon={Settings2} label="Manage Communities" />
+      </div>
+    </div>
   )
 }
 
@@ -1136,9 +1218,8 @@ export default function Home() {
 
   return (
     <>
-      {isHomePage && <SubNav />}
       <div className="p-4 sm:p-6 lg:p-8 bg-muted/40">
-        <div className="max-w-7xl mx-auto">
+        <div className="w-full mx-auto px-4 lg:px-6">
           <CreatePostModal
             isOpen={isPostModalOpen}
             initialType={modalInitialType}
@@ -1147,7 +1228,11 @@ export default function Home() {
           />
           <PostJobModal isOpen={isJobModalOpen} onOpenChange={setIsJobModalOpen} />
 
-          <div className="grid lg:grid-cols-4 gap-8 items-start">
+          <div className="grid lg:grid-cols-6 gap-6 items-start">
+            <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block overflow-y-auto max-h-[calc(100vh-100px)] custom-scrollbar pr-1">
+              <SideNavigation />
+            </aside>
+
             <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
               <ProfileCard user={user} profile={profile} />
               <RecentActivityCard />
@@ -1243,7 +1328,9 @@ export default function Home() {
 
             <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
               <SuggestedFollows currentUser={user} />
+            </aside>
 
+            <aside className="lg:col-span-1 space-y-6 sticky top-24 hidden lg:block">
               <Card>
                 <CardHeader>
                   <CardTitle>Trending Topics</CardTitle>
@@ -1261,7 +1348,7 @@ export default function Home() {
             </aside>
           </div>
         </div>
-      </div>
+      </div >
       <EditPostModal
         isOpen={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}

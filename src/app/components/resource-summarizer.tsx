@@ -11,7 +11,12 @@ import { FileText, Wand2, Loader2, ServerCrash, Lightbulb } from 'lucide-react';
 import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
-const initialState = {};
+type SummarizeState = {
+  summary?: string;
+  error?: string;
+};
+
+const initialState: SummarizeState = {};
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -48,42 +53,50 @@ export function ResourceSummarizer() {
   }, [state.error, toast]);
 
   return (
-    <Card className="sticky top-20">
+    <Card className="rounded-2xl border-muted/60 overflow-hidden bg-background/50 backdrop-blur-sm">
       <form action={formAction}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wand2 className="text-primary" /> AI Document Summarizer
+        <div className="bg-primary/5 p-6 border-b border-border/50">
+          <CardTitle className="flex items-center gap-3 text-2xl font-black italic">
+            <div className="bg-primary/10 p-2 rounded-xl">
+              <Wand2 className="text-primary h-6 w-6" />
+            </div>
+            AI SUMMARIZER
           </CardTitle>
-          <CardDescription>
-            Paste the content of a long document below to get a quick, AI-generated summary.
+          <CardDescription className="mt-2 font-medium">
+            Instantly distill complex technical manuals or research papers into actionable insights.
           </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="documentContent">Document Content</Label>
+        </div>
+        <CardContent className="p-6 space-y-4">
+          <div className="space-y-3">
+            <Label htmlFor="documentContent" className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80 px-1">Document Content</Label>
             <Textarea
               id="documentContent"
               name="documentContent"
               placeholder="Paste your document here... (minimum 100 characters)"
-              rows={10}
+              rows={8}
+              className="rounded-xl border-muted focus-visible:ring-primary/20 resize-none bg-background/50"
               required
             />
           </div>
         </CardContent>
-        <CardFooter className="flex justify-end">
+        <CardFooter className="px-6 pb-6 pt-0 flex justify-end">
           <SubmitButton />
         </CardFooter>
       </form>
-      
+
       {state.summary && (
-        <CardContent>
-            <Alert>
-                <Lightbulb className="h-4 w-4"/>
-                <AlertTitle>Summary Result</AlertTitle>
-                <AlertDescription className="prose prose-sm dark:prose-invert max-w-none">
-                    <p>{state.summary}</p>
-                </AlertDescription>
-            </Alert>
+        <CardContent className="px-6 pb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="bg-primary/10 rounded-2xl p-6 border border-primary/20">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="bg-primary h-6 w-6 rounded-lg flex items-center justify-center">
+                <Lightbulb className="h-4 w-4 text-primary-foreground font-black" />
+              </div>
+              <h4 className="text-sm font-black uppercase tracking-widest text-primary">Insight Summary</h4>
+            </div>
+            <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/90 leading-relaxed font-medium">
+              <p>{state.summary}</p>
+            </div>
+          </div>
         </CardContent>
       )}
     </Card>

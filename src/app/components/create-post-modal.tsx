@@ -139,8 +139,61 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email || 'User';
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || null;
 
+  /* HTML to Markdown converter helper */
+  const htmlToMarkdown = (html: string) => {
+    let text = html;
+    // Replace breaks with newlines
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+    text = text.replace(/<div>/gi, '\n');
+    text = text.replace(/<\/div>/gi, '');
+
+    // Bold
+    text = text.replace(/<b>(.*?)<\/b>/gi, '**$1**');
+    text = text.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
+
+    // Italic
+    text = text.replace(/<i>(.*?)<\/i>/gi, '*$1*');
+    text = text.replace(/<em>(.*?)<\/em>/gi, '*$1*');
+
+    // Links
+    text = text.replace(/<a href="(.*?)">(.*?)<\/a>/gi, '[$2]($1)');
+
+    // Clean up HTML entities
+    text = text.replace(/&nbsp;/g, ' ');
+    text = text.replace(/&amp;/g, '&');
+    text = text.replace(/&lt;/g, '<');
+    text = text.replace(/&gt;/g, '>');
+
+    return text.trim();
+  };
+
+  /* State for toolbar active styling */
+  const [isBold, setIsBold] = useState(false);
+  const [isItalic, setIsItalic] = useState(false);
+
+  const checkFormats = () => {
+    setIsBold(document.queryCommandState('bold'));
+    setIsItalic(document.queryCommandState('italic'));
+  };
+
+  /* Textarea replacement with ContentEditable */
+  const contentEditableRef = useRef<HTMLDivElement>(null);
+
+  const execCommand = (command: string, value: string | undefined = undefined) => {
+    document.execCommand(command, false, value);
+    if (contentEditableRef.current) {
+      setPostContent(contentEditableRef.current.innerText); // Store raw text for validation
+    }
+    checkFormats();
+    contentEditableRef.current?.focus();
+  };
+
   const handlePost = async () => {
-    if (!postContent.trim()) {
+    // Get content from contentEditable
+    const htmlContent = contentEditableRef.current?.innerHTML || '';
+    const markdownContent = htmlToMarkdown(htmlContent);
+
+    if (!markdownContent.trim()) {
       toast({
         title: "Content required",
         description: "Please write something before posting.",
@@ -154,7 +207,7 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be signed in to post.");
 
-      const postSlug = (postType === 'forum' ? title : postContent.substring(0, 50))
+      const postSlug = (postType === 'forum' ? title : markdownContent.substring(0, 50))
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '') + `-${Date.now()}`;
@@ -164,7 +217,7 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
         if (!selectedCategoryId) throw new Error("Please select a topic.");
 
         const { error } = await supabase.from('forum_posts').insert({
-          content: postContent,
+          content: markdownContent,
           title: title,
           category_id: selectedCategoryId,
           author_id: user.id,
@@ -174,7 +227,7 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
         if (error) throw error;
       } else {
         const { error } = await supabase.from('social_posts').insert({
-          content: postContent,
+          content: markdownContent,
           author_id: user.id,
           slug: postSlug
         });
@@ -187,6 +240,9 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
         title: postType === 'forum' ? "Discussion started!" : "Post shared!",
         description: "Your content is now live in the community feed.",
       });
+
+      // Reset content
+      if (contentEditableRef.current) contentEditableRef.current.innerHTML = '';
       setPostContent('');
       setTitle('');
       setSelectedCategoryId('');
@@ -246,74 +302,32 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
     });
   };
 
-  const insertFormat = (prefix: string, suffix: string = prefix) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = postContent.substring(start, end);
-
-    const newContent =
-      postContent.substring(0, start) +
-      prefix + selectedText + suffix +
-      postContent.substring(end);
-
-    setPostContent(newContent);
-
-    // Focus and restore selection
-    setTimeout(() => {
-      textarea.focus();
-      if (start === end) {
-        textarea.setSelectionRange(start + prefix.length, start + prefix.length);
-      } else {
-        textarea.setSelectionRange(start + prefix.length, end + prefix.length);
-      }
-    }, 0);
-  };
-
   const handleLinkClick = () => {
     const url = window.prompt("Enter the URL:");
     if (url) {
-      insertFormat('[', `](${url})`);
+      const formattedUrl = url.startsWith('http') ? url : `https://${url}`;
+      execCommand('createLink', formattedUrl);
     }
   };
 
   const handleLinkSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (linkUrl) {
-      // If starts with http, use as is, else add https://
       const formattedUrl = linkUrl.startsWith('http') ? linkUrl : `https://${linkUrl}`;
-      insertFormat('[', `](${formattedUrl})`);
+      execCommand('createLink', formattedUrl);
       setLinkUrl('');
     }
   };
 
   const handleEmojiSelect = (emoji: string) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    const newContent =
-      postContent.substring(0, start) +
-      emoji +
-      postContent.substring(end);
-
-    setPostContent(newContent);
-
-    setTimeout(() => {
-      textarea.focus();
-      const newPos = start + emoji.length;
-      textarea.setSelectionRange(newPos, newPos);
-    }, 0);
+    execCommand('insertText', emoji);
   };
 
   const handleYoutubeClick = () => {
     const url = window.prompt("Enter YouTube video URL:");
     if (url) {
-      setPostContent(prev => prev + (prev ? '\n\n' : '') + `[YouTube Video](${url})`);
+      // Ideally we'd insert an embed, but for markdown compatibility let's insert a link or placeholder
+      execCommand('insertText', ` [YouTube Video](${url}) `);
     }
   };
 
@@ -423,13 +437,29 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
                   <Separator className="opacity-50" />
                 </div>
               )}
-              <Textarea
-                ref={textareaRef}
-                placeholder={postType === 'forum' ? "Start the conversation here. Share insights, ask for advice, or post a technical problem..." : "What's on your mind today?"}
-                className="min-h-[250px] border-none focus-visible:ring-0 text-lg resize-none placeholder:text-muted-foreground/30 leading-relaxed"
-                value={postContent}
-                onChange={(e) => setPostContent(e.target.value)}
-              />
+
+              {/* WYSIWYG Editor Area */}
+              <div
+                className="min-h-[250px] relative cursor-text"
+                onClick={() => contentEditableRef.current?.focus()}
+              >
+                <div
+                  ref={contentEditableRef}
+                  contentEditable
+                  className="min-h-[250px] w-full border-none focus:outline-none text-lg resize-none leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/30"
+                  data-placeholder={postType === 'forum' ? "Start the conversation here..." : "What's on your mind today?"}
+                  onInput={(e) => {
+                    setPostContent(e.currentTarget.innerText);
+                    checkFormats();
+                  }}
+                  onKeyUp={checkFormats}
+                  onMouseUp={checkFormats}
+                  onKeyDown={(e) => {
+                    // Basic support for keyboard shortcuts if needed, browser handles most ctrl+b/i natively
+                  }}
+                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                />
+              </div>
 
               {imagePreviews.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-1">
@@ -453,10 +483,28 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
             <div className="flex items-center justify-between bg-muted/20 p-2.5 rounded-xl border border-border/10">
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon" onClick={handleImageClick} className="hover:bg-background h-9 w-9" title="Add Image"><ImageIcon className="h-5 w-5 text-primary" /></Button>
-                <Button variant="ghost" size="icon" onClick={handleYoutubeClick} className="hover:bg-background h-9 w-9" title="Embed YouTube"><Youtube className="h-5 w-5 text-red-500" /></Button>
-                <Separator orientation="vertical" className="h-6 mx-2 opacity-50" />
-                <Button variant="ghost" size="icon" onClick={() => insertFormat('**')} className="hover:bg-background h-9 w-9" title="Bold text"><Bold className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => insertFormat('*')} className="hover:bg-background h-9 w-9" title="Italic text"><Italic className="h-4 w-4" /></Button>
+
+                <Button
+                  variant={isBold ? "default" : "ghost"}
+                  size="icon"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => execCommand('bold')}
+                  className={`h-9 w-9 transition-all ${isBold ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20' : 'hover:bg-background'}`}
+                  title="Bold text"
+                >
+                  <Bold className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  variant={isItalic ? "default" : "ghost"}
+                  size="icon"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => execCommand('italic')}
+                  className={`h-9 w-9 transition-all ${isItalic ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20' : 'hover:bg-background'}`}
+                  title="Italic text"
+                >
+                  <Italic className="h-4 w-4" />
+                </Button>
 
                 <Popover>
                   <PopoverTrigger asChild>
@@ -478,7 +526,7 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
                   </PopoverContent>
                 </Popover>
 
-                <Button variant="ghost" size="icon" onClick={() => insertFormat('`')} className="hover:bg-background h-9 w-9" title="Code snippet"><Code className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onMouseDown={(e) => e.preventDefault()} onClick={() => execCommand('insertHTML', '<code>' + window.getSelection() + '</code>')} className="hover:bg-background h-9 w-9" title="Code snippet"><Code className="h-4 w-4" /></Button>
               </div>
 
               <Popover>

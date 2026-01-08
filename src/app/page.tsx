@@ -41,6 +41,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { EditPostModal } from '@/app/components/edit-post-modal';
+import { PostDetailModal } from '@/app/components/post-detail-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -204,7 +205,7 @@ function RecentActivityCard() {
   )
 }
 
-function PostCard({ post, currentUserId, onRefresh, onEdit }: { post: FeedPost; currentUserId?: string; onRefresh?: () => void; onEdit?: (post: FeedPost) => void }) {
+function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { post: FeedPost; currentUserId?: string; onRefresh?: () => void; onEdit?: (post: FeedPost) => void; onPostClick?: (post: FeedPost) => void }) {
   const supabase = createClient();
   const { toast } = useToast();
   const router = useRouter();
@@ -226,6 +227,19 @@ function PostCard({ post, currentUserId, onRefresh, onEdit }: { post: FeedPost; 
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Helper handling for clicks
+  const handleCardClick = (e: React.MouseEvent) => {
+    // If text is selected, don't trigger click
+    if (window.getSelection()?.toString()) return;
+
+    if (onPostClick) {
+      e.preventDefault();
+      onPostClick(post);
+    } else {
+      router.push(`/forums/post/${post.slug}${post.item_type === 'repost' ? `?repost=${post.repost_record_id}` : ''}`);
+    }
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -603,7 +617,7 @@ function PostCard({ post, currentUserId, onRefresh, onEdit }: { post: FeedPost; 
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card className={`overflow-hidden transition-all duration-200 ${post.post_type === 'forum' ? 'border-l-4 border-l-blue-500/80 shadow-sm' : ''}`}>
       <CardHeader>
         <div className="flex items-center gap-4">
           <Link
@@ -640,8 +654,14 @@ function PostCard({ post, currentUserId, onRefresh, onEdit }: { post: FeedPost; 
                 )}
               </div>
             </Link>
-            <CardDescription className="text-xs">
-              {(post.item_type === 'repost' ? post.reposter_title : post.author_title) || 'Engineer'} · {formatDate(post.item_type === 'repost' ? post.feed_created_at : post.created_at)}
+            <CardDescription className="text-xs flex items-center flex-wrap gap-2 mt-0.5">
+              <span>{(post.item_type === 'repost' ? post.reposter_title : post.author_title) || 'Engineer'} · {formatDate(post.item_type === 'repost' ? post.feed_created_at : post.created_at)}</span>
+              {post.post_type === 'forum' && (
+                <Badge variant="secondary" className="h-[18px] px-1.5 text-[10px] bg-blue-100 text-blue-700 hover:bg-blue-100 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 gap-1 font-medium">
+                  <MessageSquare className="h-2.5 w-2.5" />
+                  Discussion
+                </Badge>
+              )}
             </CardDescription>
           </div>
           <DropdownMenu>
@@ -702,7 +722,7 @@ function PostCard({ post, currentUserId, onRefresh, onEdit }: { post: FeedPost; 
       </CardHeader>
       <CardContent>
         {post.item_type === 'repost' ? (
-          <div className="border rounded-xl p-4 bg-muted/20 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => router.push(`/forums/post/${post.slug}${post.item_type === 'repost' ? `?repost=${post.repost_record_id}` : ''}`)}>
+          <div className="border rounded-xl p-4 bg-muted/20 hover:bg-muted/30 transition-colors cursor-pointer" onClick={handleCardClick}>
             <div className="flex items-center gap-3 mb-3">
               <Link
                 href={`/users/${post.author_id}`}
@@ -725,10 +745,47 @@ function PostCard({ post, currentUserId, onRefresh, onEdit }: { post: FeedPost; 
             </div>
 
             <div className="space-y-4">
-              {post.title && <h3 className="text-base font-bold">{post.title}</h3>}
-              <p className="text-sm text-foreground/80 line-clamp-3 whitespace-pre-wrap">
-                {post.content}
-              </p>
+              {post.title && <h3 className={`font-bold mb-1 ${post.post_type === 'forum' ? 'text-lg text-primary' : 'text-base'}`}>{post.title}</h3>}
+              <div className="text-sm text-foreground/80 line-clamp-3 space-y-1">
+                {(() => {
+                  const content = post.content || '';
+                  const paragraphs = content.split('\n');
+
+                  return paragraphs.map((paragraph, pIndex) => {
+                    if (!paragraph.trim()) return <br key={pIndex} />;
+
+                    const parts = [];
+                    let lastIndex = 0;
+                    // Regex for bold (**text**) and italic (*text*)
+                    const regex = /(\*\*(.*?)\*\*)|(\*(.*?)\*)/g;
+                    let match;
+
+                    while ((match = regex.exec(paragraph)) !== null) {
+                      if (match.index > lastIndex) {
+                        parts.push(paragraph.substring(lastIndex, match.index));
+                      }
+
+                      if (match[2]) { // Bold
+                        parts.push(<strong key={`${pIndex}-${match.index}`} className="font-bold text-foreground">{match[2]}</strong>);
+                      } else if (match[4]) { // Italic
+                        parts.push(<em key={`${pIndex}-${match.index}`} className="italic">{match[4]}</em>);
+                      }
+
+                      lastIndex = regex.lastIndex;
+                    }
+
+                    if (lastIndex < paragraph.length) {
+                      parts.push(paragraph.substring(lastIndex));
+                    }
+
+                    return (
+                      <div key={pIndex} className={parts.length > 0 ? '' : ''}>
+                        {parts.length > 0 ? parts : paragraph}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
             </div>
 
             {post.tags && post.tags.length > 0 && (
@@ -756,11 +813,47 @@ function PostCard({ post, currentUserId, onRefresh, onEdit }: { post: FeedPost; 
             if (renderOnlyContent) {
               return (
                 <div className="space-y-4">
-                  <Link href={`/forums/post/${post.slug}`} className="block group">
-                    <p className="text-foreground text-sm sm:text-base whitespace-pre-wrap group-hover:text-primary transition-colors">
-                      {displayContent}
-                    </p>
-                  </Link>
+                  <div onClick={handleCardClick} className="block group cursor-pointer">
+                    <div className="text-foreground text-sm sm:text-base group-hover:text-primary transition-colors space-y-1">
+                      {(() => {
+                        const content = displayContent || '';
+                        const paragraphs = content.split('\n');
+
+                        return paragraphs.map((paragraph, pIndex) => {
+                          if (!paragraph.trim()) return <br key={pIndex} />;
+
+                          const parts = [];
+                          let lastIndex = 0;
+                          const regex = /(\*\*(.*?)\*\*)|(\*(.*?)\*)/g;
+                          let match;
+
+                          while ((match = regex.exec(paragraph)) !== null) {
+                            if (match.index > lastIndex) {
+                              parts.push(paragraph.substring(lastIndex, match.index));
+                            }
+
+                            if (match[2]) { // Bold
+                              parts.push(<strong key={`${pIndex}-${match.index}`} className="font-bold text-foreground">{match[2]}</strong>);
+                            } else if (match[4]) { // Italic
+                              parts.push(<em key={`${pIndex}-${match.index}`} className="italic">{match[4]}</em>);
+                            }
+
+                            lastIndex = regex.lastIndex;
+                          }
+
+                          if (lastIndex < paragraph.length) {
+                            parts.push(paragraph.substring(lastIndex));
+                          }
+
+                          return (
+                            <div key={pIndex}>
+                              {parts.length > 0 ? parts : paragraph}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
                   {post.content.length > maxLength && (
                     <button
                       onClick={() => setIsExpanded(!isExpanded)}
@@ -775,13 +868,49 @@ function PostCard({ post, currentUserId, onRefresh, onEdit }: { post: FeedPost; 
 
             return (
               <>
-                <Link href={`/forums/post/${post.slug}`} className="block group">
-                  <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors">{post.title}</h3>
-                </Link>
+                <div onClick={handleCardClick} className="block group cursor-pointer">
+                  <h3 className={`font-bold mb-2 group-hover:text-primary transition-colors ${post.post_type === 'forum' ? 'text-lg text-primary' : 'text-base'}`}>{post.title}</h3>
+                </div>
                 <div className="space-y-4">
-                  <p className="text-muted-foreground text-sm whitespace-pre-wrap">
-                    {displayContent}
-                  </p>
+                  <div className="text-muted-foreground text-sm space-y-1">
+                    {(() => {
+                      const content = displayContent || '';
+                      const paragraphs = content.split('\n');
+
+                      return paragraphs.map((paragraph, pIndex) => {
+                        if (!paragraph.trim()) return <br key={pIndex} />;
+
+                        const parts = [];
+                        let lastIndex = 0;
+                        const regex = /(\*\*(.*?)\*\*)|(\*(.*?)\*)/g;
+                        let match;
+
+                        while ((match = regex.exec(paragraph)) !== null) {
+                          if (match.index > lastIndex) {
+                            parts.push(paragraph.substring(lastIndex, match.index));
+                          }
+
+                          if (match[2]) { // Bold
+                            parts.push(<strong key={`${pIndex}-${match.index}`} className="font-bold text-foreground">{match[2]}</strong>);
+                          } else if (match[4]) { // Italic
+                            parts.push(<em key={`${pIndex}-${match.index}`} className="italic">{match[4]}</em>);
+                          }
+
+                          lastIndex = regex.lastIndex;
+                        }
+
+                        if (lastIndex < paragraph.length) {
+                          parts.push(paragraph.substring(lastIndex));
+                        }
+
+                        return (
+                          <div key={pIndex}>
+                            {parts.length > 0 ? parts : paragraph}
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
                   {post.content.length > maxLength && (
                     <button
                       onClick={() => setIsExpanded(!isExpanded)}
@@ -1103,6 +1232,27 @@ export default function Home() {
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [editingPost, setEditingPost] = useState<FeedPost | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
+  const [isPostDetailModalOpen, setIsPostDetailModalOpen] = useState(false);
+
+  const handlePostClick = (post: FeedPost) => {
+    setSelectedPost(post);
+    setIsPostDetailModalOpen(true);
+  };
+
+  const handlePostUpdate = (updatedPost: any) => {
+    setPosts(currentPosts =>
+      currentPosts.map(p =>
+        (p.item_type === 'repost' && p.repost_record_id === updatedPost.repost_record_id) ||
+          (p.item_type !== 'repost' && p.id === updatedPost.id)
+          ? { ...p, ...updatedPost }
+          : p
+      )
+    );
+    if (selectedPost && selectedPost.id === updatedPost.id) {
+      setSelectedPost({ ...selectedPost, ...updatedPost });
+    }
+  };
   const supabase = createClient();
   const pathname = usePathname();
 
@@ -1643,6 +1793,7 @@ export default function Home() {
                                   setEditingPost(p);
                                   setIsEditModalOpen(true);
                                 }}
+                                onPostClick={handlePostClick}
                               />
                             </div>
                           ));
@@ -1705,6 +1856,14 @@ export default function Home() {
           content: editingPost.content,
           title: editingPost.title || ''
         } : { id: '', content: '', title: '' }}
+      />
+
+      <PostDetailModal
+        isOpen={isPostDetailModalOpen}
+        onOpenChange={setIsPostDetailModalOpen}
+        post={selectedPost}
+        currentUser={user}
+        onPostUpdate={handlePostUpdate}
       />
     </>
   );

@@ -1099,6 +1099,7 @@ export default function Home() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [hasNewPosts, setHasNewPosts] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [editingPost, setEditingPost] = useState<FeedPost | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -1120,9 +1121,7 @@ export default function Home() {
           created_at,
           author_id,
           slug,
-          view_count,
-          likes: post_likes(count),
-          comments: comments(count)
+          view_count
         `)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -1137,8 +1136,7 @@ export default function Home() {
           content,
           created_at,
           author_id,
-          likes: social_post_likes(count),
-          comments: social_post_comments(count)
+          slug
         `)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -1175,8 +1173,8 @@ export default function Home() {
           author_title: author?.job_title,
           post_type: 'forum',
           item_type: 'post',
-          like_count: post.likes?.[0]?.count || 0,
-          comment_count: post.comments?.[0]?.count || 0,
+          like_count: 0,
+          comment_count: 0,
         };
       });
 
@@ -1194,10 +1192,10 @@ export default function Home() {
           author_title: author?.job_title,
           post_type: 'social',
           item_type: 'post',
-          like_count: post.likes?.[0]?.count || 0,
-          comment_count: post.comments?.[0]?.count || 0,
+          like_count: 0,
+          comment_count: 0,
           title: null,
-          slug: '',
+          slug: post.slug || '',
           view_count: 0,
         };
       });
@@ -1269,8 +1267,14 @@ export default function Home() {
       .channel(`forum-posts-changes`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'forum_posts' },
-        () => fetchPosts()
+        { event: 'INSERT', schema: 'public', table: 'forum_posts' },
+        (payload) => {
+          if ((payload.new as any).author_id === user?.id) {
+            fetchPosts();
+          } else {
+            setHasNewPosts(true);
+          }
+        }
       )
       .subscribe();
 
@@ -1279,8 +1283,14 @@ export default function Home() {
       .channel(`social-posts-changes`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'social_posts' },
-        () => fetchPosts()
+        { event: 'INSERT', schema: 'public', table: 'social_posts' },
+        (payload) => {
+          if ((payload.new as any).author_id === user?.id) {
+            fetchPosts();
+          } else {
+            setHasNewPosts(true);
+          }
+        }
       )
       .subscribe();
 
@@ -1369,6 +1379,23 @@ export default function Home() {
                 </CardFooter>
 
                 <div className="border-t">
+                  {hasNewPosts && (
+                    <div className="flex justify-center py-2 bg-accent/20 border-b">
+                      <Button
+                        onClick={() => {
+                          fetchPosts();
+                          setHasNewPosts(false);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full shadow-sm bg-background text-primary border border-border hover:bg-accent gap-2"
+                      >
+                        <Repeat2 className="h-4 w-4" /> New posts available
+                      </Button>
+                    </div>
+                  )}
+
                   {
                     loadingPosts ? (
                       <div className="flex justify-center py-12">
@@ -1380,6 +1407,9 @@ export default function Home() {
                           <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto" />
                           <h3 className="font-semibold text-lg">No posts yet</h3>
                           <p className="text-muted-foreground">Be the first to share something with the community!</p>
+                          <Button variant="outline" size="sm" onClick={fetchPosts} className="mt-4">
+                            Refresh Feed
+                          </Button>
                         </div>
                       </div>
                     ) : (

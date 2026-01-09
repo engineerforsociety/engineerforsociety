@@ -1063,7 +1063,7 @@ const subNavLinks = [
   { href: '/forums', label: 'Forums', icon: MessageSquare },
   { href: '/podcasts', label: 'Podcasts', icon: Podcast },
   { href: '/resources', label: 'Resources', icon: BookOpen },
-  { href: '/events', label: 'Events', icon: Calendar },
+  { href: '/events', label: 'Summits', icon: Calendar },
 ]
 
 function NavItem({ icon: Icon, label, active, indent }: { icon: any, label: string, active?: boolean, indent?: boolean }) {
@@ -1095,16 +1095,22 @@ function SideNavigation() {
 
   return (
     <div className="flex flex-col gap-2 py-2">
-      {/* Top Main Nav */}
-      <nav className="space-y-0.5">
-        <NavItem icon={HomeIcon} label="Home" active={pathname === '/'} />
-        <NavItem icon={TrendingUp} label="Popular" />
-        <NavItem icon={Compass} label="Explore" />
-        <NavItem icon={Activity} label="All Activity" />
-        <NavItem icon={Plus} label="Start a community" />
-      </nav>
+      {/* Requested Discover Section - Top */}
+      <div className="space-y-0.5">
+        <SectionHeader label="Discovery" />
+        {subNavLinks.map(link => (
+          <Link key={link.href} href={link.href}>
+            <NavItem
+              icon={link.icon}
+              label={link.label}
+              active={pathname === link.href}
+            />
+          </Link>
+        ))}
+        <NavItem icon={Globe} label="View Global Map" />
+      </div>
 
-      <Separator className="my-2 bg-border/50" />
+      <Separator className="mb-2 bg-border/50" />
 
       {/* Featured Section */}
       <div className="space-y-1">
@@ -1144,19 +1150,6 @@ function SideNavigation() {
           </div>
           <Star className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
-      </div>
-
-      <Separator className="my-2 bg-border/50" />
-
-      {/* Topics */}
-      <div className="space-y-0.5">
-        <SectionHeader label="Global Topics" />
-        {subNavLinks.map(link => (
-          <Link key={link.href} href={link.href}>
-            <NavItem icon={link.icon} label={link.label} />
-          </Link>
-        ))}
-        <NavItem icon={Globe} label="View Global Map" />
       </div>
 
       <Separator className="my-2 bg-border/50" />

@@ -27,6 +27,7 @@ import {
     ShieldCheck,
     Bookmark,
     Calendar,
+    Globe,
 } from 'lucide-react';
 import { Logo } from './icons';
 import { cn } from '@/lib/utils';
@@ -45,8 +46,6 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 
 const topLinks = [
-    { href: '/', label: 'Home', icon: Home },
-    { href: '/forums', label: 'Forums', icon: MessageSquare },
     { href: '/jobs', label: 'Jobs', icon: Briefcase },
     { href: '/messages', label: 'Messaging', icon: MessageSquare, countKey: 'messages' },
     { href: '/notifications', label: 'Notifications', icon: Bell, countKey: 'notifications' },
@@ -61,12 +60,17 @@ const mainNavLinks = [
     { href: '/projects', label: 'Projects', icon: GanttChartSquare },
 ];
 
-const secondaryLinks = [
-    { href: '/projects', label: 'Projects', icon: GanttChartSquare },
+const discoveryLinks = [
+    { href: '/forums', label: 'Forums', icon: MessageSquare },
     { href: '/podcasts', label: 'Podcasts', icon: Podcast },
     { href: '/resources', label: 'Resources', icon: BookOpen },
-    { href: '/events', label: 'Events', icon: Calendar },
-]
+    { href: '/events', label: 'Summits', icon: Calendar },
+    { href: '#', label: 'View Global Map', icon: Globe },
+];
+
+const secondaryLinks = [
+    { href: '/projects', label: 'Projects', icon: GanttChartSquare },
+];
 
 
 function DesktopNav({ user, profile, counts }: { user: SupabaseUser | null, profile: any, counts: { notifications: number, messages: number } }) {
@@ -197,7 +201,22 @@ function MobileNav({ user, profile, counts }: { user: SupabaseUser | null, profi
                                 <Separator />
                                 <nav className="flex-1 overflow-y-auto">
                                     <div className="p-4 space-y-2">
-                                        <h3 className="px-2 text-sm font-semibold text-muted-foreground">Navigation</h3>
+                                        <h3 className="px-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Discovery</h3>
+                                        {discoveryLinks.map(link => {
+                                            const isActive = pathname === link.href;
+                                            return (
+                                                <SheetClose asChild key={link.label}>
+                                                    <Link href={link.href} className={cn("flex items-center gap-3 p-2 rounded-md hover:bg-accent", isActive && 'bg-accent')}>
+                                                        <link.icon className={cn("h-5 w-5 text-muted-foreground", isActive && 'text-primary')} />
+                                                        <span className={cn("font-medium", isActive && "text-primary")}>{link.label}</span>
+                                                    </Link>
+                                                </SheetClose>
+                                            )
+                                        })}
+                                    </div>
+                                    <Separator />
+                                    <div className="p-4 space-y-2">
+                                        <h3 className="px-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Navigation</h3>
                                         {topLinks.map(link => {
                                             const isActive = pathname === link.href;
                                             const count = link.countKey ? counts[link.countKey as keyof typeof counts] : 0;
@@ -221,7 +240,7 @@ function MobileNav({ user, profile, counts }: { user: SupabaseUser | null, profi
                                     </div>
                                     <Separator />
                                     <div className="p-4 space-y-2">
-                                        <h3 className="px-2 text-sm font-semibold text-muted-foreground">Work & More</h3>
+                                        <h3 className="px-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Work & More</h3>
                                         {secondaryLinks.map(link => {
                                             const isActive = pathname === link.href;
                                             return (

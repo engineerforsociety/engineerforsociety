@@ -20,6 +20,8 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { User } from '@supabase/supabase-js';
 
+import { Input } from '@/components/ui/input';
+
 type EditPostModalProps = {
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
@@ -27,6 +29,7 @@ type EditPostModalProps = {
         id: string;
         content: string;
         title: string;
+        post_type?: 'social' | 'forum';
     };
     onSuccess?: () => void;
 };
@@ -34,16 +37,26 @@ type EditPostModalProps = {
 export function EditPostModal({ isOpen, onOpenChange, post, onSuccess }: EditPostModalProps) {
     const profilePic = PlaceHolderImages.find((p) => p.id === 'profile-pic');
     const [postContent, setPostContent] = useState(post.content);
+    const [title, setTitle] = useState(post.title || '');
     const [isUpdating, setIsUpdating] = useState(false);
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<any>(null);
     const { toast } = useToast();
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const contentEditableRef = useRef<HTMLDivElement>(null);
     const supabase = createClient();
 
     useEffect(() => {
-        setPostContent(post.content);
-    }, [post]);
+        if (isOpen) {
+            // Give a small delay for the Radix Dialog portal/content to mount
+            const timer = setTimeout(() => {
+                if (contentEditableRef.current) {
+                    contentEditableRef.current.innerHTML = post.content;
+                    setPostContent(post.content);
+                }
+            }, 10);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen, post.content]);
 
     // Safety cleanup for pointer-events
     useEffect(() => {
@@ -87,18 +100,36 @@ export function EditPostModal({ isOpen, onOpenChange, post, onSuccess }: EditPos
             });
             return;
         }
+
+        if (post.post_type === 'forum' && !title.trim()) {
+            toast({
+                title: "Title required",
+                description: "Forum posts must have a title.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         setIsUpdating(true);
 
         try {
-            const title = postContent.substring(0, 50) + (postContent.length > 50 ? '...' : '');
+            if (post.post_type === 'social') {
+                const { error } = await supabase.from('social_posts').update({
+                    content: postContent,
+                    updated_at: new Date().toISOString(),
+                }).eq('id', post.id);
 
-            const { error } = await supabase.from('forum_posts').update({
-                content: postContent,
-                title: title,
-                updated_at: new Date().toISOString(),
-            }).eq('id', post.id);
+                if (error) throw error;
+            } else {
+                // Default to forum posts if generic or specified
+                const { error } = await supabase.from('forum_posts').update({
+                    content: postContent,
+                    title: title,
+                    updated_at: new Date().toISOString(),
+                }).eq('id', post.id);
 
-            if (error) throw error;
+                if (error) throw error;
+            }
 
             if (onSuccess) onSuccess();
 
@@ -133,13 +164,42 @@ export function EditPostModal({ isOpen, onOpenChange, post, onSuccess }: EditPos
                         </div>
                     </div>
                 </DialogHeader>
-                <div className="py-4">
-                    <Textarea
-                        placeholder="What do you want to talk about?"
-                        className="min-h-[200px] border-none focus-visible:ring-0 text-base"
-                        value={postContent}
-                        onChange={(e) => setPostContent(e.target.value)}
-                    />
+                <div className="py-4 space-y-4">
+                    {post.post_type === 'forum' && (
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase text-muted-foreground px-1">Title</label>
+                            <Input
+                                placeholder="Discussion title"
+                                value={title}
+                                onChange={e => setTitle(e.target.value)}
+                                className="text-lg font-bold border-none px-1 h-auto focus-visible:ring-0 placeholder:text-zinc-200"
+                            />
+                        </div>
+                    )}
+
+                    <div className="space-y-1">
+                        {post.post_type === 'forum' && <label className="text-xs font-bold uppercase text-muted-foreground px-1">Content</label>}
+                        <div
+                            ref={contentEditableRef}
+                            contentEditable
+                            className="min-h-[220px] max-h-[400px] overflow-y-auto outline-none text-xl text-foreground leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground font-medium p-2 border border-transparent focus:border-blue-100 rounded-xl transition-all"
+                            data-placeholder="What do you want to talk about?"
+                            onInput={(e) => setPostContent(e.currentTarget.innerHTML)}
+                        />
+                    </div>
+
+                    {/* Inline Formatting Bar */}
+                    <div className="flex items-center gap-1.5 border-t border-zinc-50 pt-4 mt-2">
+                        <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-zinc-100 rounded-lg transition-colors" onClick={() => { document.execCommand('bold'); if (contentEditableRef.current) setPostContent(contentEditableRef.current.innerHTML); }}><Bold className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-zinc-100 rounded-lg transition-colors" onClick={() => { document.execCommand('italic'); if (contentEditableRef.current) setPostContent(contentEditableRef.current.innerHTML); }}><Italic className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-zinc-100 rounded-lg transition-colors" onClick={() => {
+                            const url = prompt('URL:');
+                            if (url) {
+                                document.execCommand('createLink', false, url);
+                                if (contentEditableRef.current) setPostContent(contentEditableRef.current.innerHTML);
+                            }
+                        }}><Link className="h-4 w-4" /></Button>
+                    </div>
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isUpdating}>Cancel</Button>

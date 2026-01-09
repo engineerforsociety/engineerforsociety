@@ -261,8 +261,9 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
     setIsProcessing(true);
     try {
       if (isRepost) {
+        const table = post.post_type === 'social' ? 'social_post_shares' : 'forum_post_reposts';
         const { error } = await supabase
-          .from('forum_post_reposts')
+          .from(table)
           .delete()
           .eq('id', post.repost_record_id);
 
@@ -413,21 +414,37 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
 
     setIsProcessing(true);
     try {
+      const isSocial = post.post_type === 'social';
+      const table = isSocial ? 'social_post_shares' : 'forum_post_reposts';
+      const postCol = isSocial ? 'post_id' : 'original_post_id';
+      const userCol = isSocial ? 'user_id' : 'reposter_id';
+
       // Check if already reposted
-      const { data: existing } = await supabase
-        .from('forum_post_reposts')
+      let query = supabase
+        .from(table)
         .select('id')
-        .eq('original_post_id', post.id)
-        .eq('reposter_id', currentUserId)
-        .single();
+        .eq(postCol, post.id)
+        .eq(userCol, currentUserId);
+
+      if (isSocial) {
+        query = query.eq('share_type', 'feed');
+      }
+
+      const { data: existing } = await query.single();
 
       if (existing) {
         // Unrepost
-        const { error } = await supabase
-          .from('forum_post_reposts')
+        let deleteQuery = supabase
+          .from(table)
           .delete()
-          .eq('original_post_id', post.id)
-          .eq('reposter_id', currentUserId);
+          .eq(postCol, post.id)
+          .eq(userCol, currentUserId);
+
+        if (isSocial) {
+          deleteQuery = deleteQuery.eq('share_type', 'feed');
+        }
+
+        const { error } = await deleteQuery;
 
         if (error) throw error;
         toast({
@@ -436,12 +453,18 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
         });
       } else {
         // Repost
+        const insertData: any = {
+          [postCol]: post.id,
+          [userCol]: currentUserId
+        };
+
+        if (isSocial) {
+          insertData.share_type = 'feed';
+        }
+
         const { error } = await supabase
-          .from('forum_post_reposts')
-          .insert({
-            original_post_id: post.id,
-            reposter_id: currentUserId
-          });
+          .from(table)
+          .insert(insertData);
 
         if (error) throw error;
         toast({
@@ -712,7 +735,7 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Post
+                    {isRepost ? 'Delete Repost' : 'Delete Post'}
                   </DropdownMenuItem>
                 </>
               )}
@@ -747,44 +770,10 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
             <div className="space-y-4">
               {post.title && <h3 className={`font-bold mb-1 ${post.post_type === 'forum' ? 'text-lg text-primary' : 'text-base'}`}>{post.title}</h3>}
               <div className="text-sm text-foreground/80 line-clamp-3 space-y-1">
-                {(() => {
-                  const content = post.content || '';
-                  const paragraphs = content.split('\n');
-
-                  return paragraphs.map((paragraph, pIndex) => {
-                    if (!paragraph.trim()) return <br key={pIndex} />;
-
-                    const parts = [];
-                    let lastIndex = 0;
-                    // Regex for bold (**text**) and italic (*text*)
-                    const regex = /(\*\*(.*?)\*\*)|(\*(.*?)\*)/g;
-                    let match;
-
-                    while ((match = regex.exec(paragraph)) !== null) {
-                      if (match.index > lastIndex) {
-                        parts.push(paragraph.substring(lastIndex, match.index));
-                      }
-
-                      if (match[2]) { // Bold
-                        parts.push(<strong key={`${pIndex}-${match.index}`} className="font-bold text-foreground">{match[2]}</strong>);
-                      } else if (match[4]) { // Italic
-                        parts.push(<em key={`${pIndex}-${match.index}`} className="italic">{match[4]}</em>);
-                      }
-
-                      lastIndex = regex.lastIndex;
-                    }
-
-                    if (lastIndex < paragraph.length) {
-                      parts.push(paragraph.substring(lastIndex));
-                    }
-
-                    return (
-                      <div key={pIndex} className={parts.length > 0 ? '' : ''}>
-                        {parts.length > 0 ? parts : paragraph}
-                      </div>
-                    );
-                  });
-                })()}
+                <div
+                  className="text-sm text-foreground/80 line-clamp-3 [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4"
+                  dangerouslySetInnerHTML={{ __html: post.content || '' }}
+                />
               </div>
             </div>
 
@@ -814,45 +803,10 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
               return (
                 <div className="space-y-4">
                   <div onClick={handleCardClick} className="block group cursor-pointer">
-                    <div className="text-foreground text-sm sm:text-base group-hover:text-primary transition-colors space-y-1">
-                      {(() => {
-                        const content = displayContent || '';
-                        const paragraphs = content.split('\n');
-
-                        return paragraphs.map((paragraph, pIndex) => {
-                          if (!paragraph.trim()) return <br key={pIndex} />;
-
-                          const parts = [];
-                          let lastIndex = 0;
-                          const regex = /(\*\*(.*?)\*\*)|(\*(.*?)\*)/g;
-                          let match;
-
-                          while ((match = regex.exec(paragraph)) !== null) {
-                            if (match.index > lastIndex) {
-                              parts.push(paragraph.substring(lastIndex, match.index));
-                            }
-
-                            if (match[2]) { // Bold
-                              parts.push(<strong key={`${pIndex}-${match.index}`} className="font-bold text-foreground">{match[2]}</strong>);
-                            } else if (match[4]) { // Italic
-                              parts.push(<em key={`${pIndex}-${match.index}`} className="italic">{match[4]}</em>);
-                            }
-
-                            lastIndex = regex.lastIndex;
-                          }
-
-                          if (lastIndex < paragraph.length) {
-                            parts.push(paragraph.substring(lastIndex));
-                          }
-
-                          return (
-                            <div key={pIndex}>
-                              {parts.length > 0 ? parts : paragraph}
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
+                    <div
+                      className="text-foreground text-sm sm:text-base group-hover:text-primary transition-colors space-y-1 [&>p]:min-h-[1.2em]"
+                      dangerouslySetInnerHTML={{ __html: displayContent || '' }}
+                    />
                   </div>
                   {post.content.length > maxLength && (
                     <button
@@ -873,43 +827,10 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
                 </div>
                 <div className="space-y-4">
                   <div className="text-muted-foreground text-sm space-y-1">
-                    {(() => {
-                      const content = displayContent || '';
-                      const paragraphs = content.split('\n');
-
-                      return paragraphs.map((paragraph, pIndex) => {
-                        if (!paragraph.trim()) return <br key={pIndex} />;
-
-                        const parts = [];
-                        let lastIndex = 0;
-                        const regex = /(\*\*(.*?)\*\*)|(\*(.*?)\*)/g;
-                        let match;
-
-                        while ((match = regex.exec(paragraph)) !== null) {
-                          if (match.index > lastIndex) {
-                            parts.push(paragraph.substring(lastIndex, match.index));
-                          }
-
-                          if (match[2]) { // Bold
-                            parts.push(<strong key={`${pIndex}-${match.index}`} className="font-bold text-foreground">{match[2]}</strong>);
-                          } else if (match[4]) { // Italic
-                            parts.push(<em key={`${pIndex}-${match.index}`} className="italic">{match[4]}</em>);
-                          }
-
-                          lastIndex = regex.lastIndex;
-                        }
-
-                        if (lastIndex < paragraph.length) {
-                          parts.push(paragraph.substring(lastIndex));
-                        }
-
-                        return (
-                          <div key={pIndex}>
-                            {parts.length > 0 ? parts : paragraph}
-                          </div>
-                        );
-                      });
-                    })()}
+                    <div
+                      className={`text-sm text-foreground/80 ${!isExpanded ? 'line-clamp-3' : ''} [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4`}
+                      dangerouslySetInnerHTML={{ __html: displayContent || '' }}
+                    />
                   </div>
                   {post.content.length > maxLength && (
                     <button
@@ -1052,6 +973,7 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
             onRepost={handleRepost}
             isRepost={isRepost}
             repostId={post.repost_record_id}
+            postType={post.post_type}
           />
         )
       }
@@ -1291,15 +1213,76 @@ export default function Home() {
 
       if (socialError) throw socialError;
 
-      // Get all unique author IDs to fetch profiles
-      const authorIds = new Set<string>();
-      forumData?.forEach(p => authorIds.add(p.author_id));
-      socialData?.forEach(p => authorIds.add(p.author_id));
+      // Fetch social post shares (reposts)
+      const { data: socialShareData, error: socialShareError } = await supabase
+        .from('social_post_shares')
+        .select(`
+          id,
+          created_at,
+          post_id,
+          user_id,
+          social_posts (
+            id,
+            content,
+            created_at,
+            author_id,
+            slug,
+            social_post_reactions(count),
+            social_comments(count)
+          )
+        `)
+        .eq('share_type', 'feed')
+        .order('created_at', { ascending: false })
+        .limit(15);
+
+      if (socialShareError) throw socialShareError;
+
+      // Fetch forum post reposts
+      const { data: forumRepostData, error: forumRepostError } = await supabase
+        .from('forum_post_reposts')
+        .select(`
+          id,
+          created_at,
+          original_post_id,
+          reposter_id,
+          forum_posts (
+            id,
+            title,
+            content,
+            created_at,
+            author_id,
+            slug,
+            view_count,
+            forum_post_reactions(count),
+            forum_comments(count)
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(15);
+
+      if (forumRepostError) throw forumRepostError;
+
+      // Get all unique profile IDs to fetch profiles
+      const profileIds = new Set<string>();
+      forumData?.forEach(p => profileIds.add(p.author_id));
+      socialData?.forEach(p => profileIds.add(p.author_id));
+
+      socialShareData?.forEach(s => {
+        profileIds.add(s.user_id);
+        const originalPost: any = Array.isArray(s.social_posts) ? s.social_posts[0] : s.social_posts;
+        if (originalPost?.author_id) profileIds.add(originalPost.author_id);
+      });
+
+      forumRepostData?.forEach(r => {
+        profileIds.add(r.reposter_id);
+        const originalPost: any = Array.isArray(r.forum_posts) ? r.forum_posts[0] : r.forum_posts;
+        if (originalPost?.author_id) profileIds.add(originalPost.author_id);
+      });
 
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name, avatar_url, job_title')
-        .in('id', Array.from(authorIds));
+        .in('id', Array.from(profileIds));
 
       const profilesMap = new Map(profiles?.map(p => [p.id, p]));
 
@@ -1387,8 +1370,93 @@ export default function Home() {
         };
       });
 
+      // Transform social shares (reposts)
+      const formattedSocialShares = (socialShareData || [])
+        .filter(s => s.social_posts) // Safety check
+        .map(share => {
+          const originalPost: any = Array.isArray(share.social_posts) ? share.social_posts[0] : share.social_posts;
+          if (!originalPost) return null;
+
+          const author = profilesMap.get(originalPost.author_id);
+          const reposter = profilesMap.get(share.user_id);
+          const likeCount = originalPost.social_post_reactions?.[0]?.count || 0;
+          const commentCount = originalPost.social_comments?.[0]?.count || 0;
+
+          return {
+            id: originalPost.id,
+            feed_item_id: `share-${share.id}`,
+            content: originalPost.content,
+            created_at: originalPost.created_at,
+            feed_created_at: share.created_at,
+            author_id: originalPost.author_id,
+            author_name: author?.full_name || 'Unknown',
+            author_avatar: author?.avatar_url,
+            author_title: author?.job_title,
+            post_type: 'social' as const,
+            item_type: 'repost' as const,
+            reposter_id: share.user_id,
+            reposter_name: reposter?.full_name || 'Someone',
+            reposter_avatar: reposter?.avatar_url,
+            reposter_title: reposter?.job_title,
+            repost_record_id: share.id,
+            like_count: likeCount,
+            comment_count: commentCount,
+            title: null,
+            slug: originalPost.slug || '',
+            view_count: 0,
+            tags: null,
+            is_pinned: false,
+            engagement_score: calculateEngagementScore(likeCount, commentCount, 0, share.created_at),
+          };
+        }).filter(Boolean);
+
+      // Transform forum reposts
+      const formattedForumReposts = (forumRepostData || [])
+        .filter(r => r.forum_posts)
+        .map(repost => {
+          const originalPost: any = Array.isArray(repost.forum_posts) ? repost.forum_posts[0] : repost.forum_posts;
+          if (!originalPost) return null;
+
+          const author = profilesMap.get(originalPost.author_id);
+          const reposter = profilesMap.get(repost.reposter_id);
+          const likeCount = originalPost.forum_post_reactions?.[0]?.count || 0;
+          const commentCount = originalPost.forum_comments?.[0]?.count || 0;
+
+          return {
+            id: originalPost.id,
+            feed_item_id: `repost-${repost.id}`,
+            title: originalPost.title,
+            content: originalPost.content,
+            created_at: originalPost.created_at,
+            feed_created_at: repost.created_at,
+            author_id: originalPost.author_id,
+            author_name: author?.full_name || 'Unknown',
+            author_avatar: author?.avatar_url,
+            author_title: author?.job_title,
+            post_type: 'forum' as const,
+            item_type: 'repost' as const,
+            reposter_id: repost.reposter_id,
+            reposter_name: reposter?.full_name || 'Someone',
+            reposter_avatar: reposter?.avatar_url,
+            reposter_title: reposter?.job_title,
+            repost_record_id: repost.id,
+            like_count: likeCount,
+            comment_count: commentCount,
+            slug: originalPost.slug,
+            view_count: originalPost.view_count || 0,
+            tags: null,
+            is_pinned: false,
+            engagement_score: calculateEngagementScore(likeCount, commentCount, originalPost.view_count || 0, repost.created_at),
+          };
+        }).filter(Boolean);
+
       // Merge and sort by engagement score (smart algorithm)
-      const allPosts = [...formattedForumPosts, ...formattedSocialPosts].sort((a, b) => {
+      const allPosts = ([
+        ...formattedForumPosts,
+        ...formattedSocialPosts,
+        ...formattedSocialShares,
+        ...formattedForumReposts
+      ].filter(p => p !== null) as any[]).sort((a, b) => {
         // Primary sort by engagement score
         const scoreDiff = (b.engagement_score || 0) - (a.engagement_score || 0);
 
@@ -1489,13 +1557,44 @@ export default function Home() {
         { event: 'INSERT', schema: 'public', table: 'social_posts' },
         (payload) => {
           if ((payload.new as any).author_id === user?.id) {
-            // Own post - refresh immediately
-            fetchPosts();
-          } else if (posts.length === 0) {
-            // Feed is empty - auto refresh to show first post
             fetchPosts();
           } else {
-            // Show notification for new posts
+            setHasNewPosts(true);
+            setNewPostsCount(prev => prev + 1);
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to social shares
+    const shareChannel = supabase
+      .channel(`social-shares-changes`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'social_post_shares' },
+        (payload) => {
+          if ((payload.new as any).share_type === 'feed') {
+            if ((payload.new as any).user_id === user?.id) {
+              fetchPosts();
+            } else {
+              setHasNewPosts(true);
+              setNewPostsCount(prev => prev + 1);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to forum reposts
+    const repostChannel = supabase
+      .channel(`forum-reposts-changes`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'forum_post_reposts' },
+        (payload) => {
+          if ((payload.new as any).reposter_id === user?.id) {
+            fetchPosts();
+          } else {
             setHasNewPosts(true);
             setNewPostsCount(prev => prev + 1);
           }
@@ -1506,8 +1605,10 @@ export default function Home() {
     return () => {
       supabase.removeChannel(forumChannel);
       supabase.removeChannel(socialChannel);
+      supabase.removeChannel(shareChannel);
+      supabase.removeChannel(repostChannel);
     };
-  }, [supabase, fetchPosts]);
+  }, [supabase, fetchPosts, user, posts.length]);
 
   if (loading) {
     return (
@@ -1848,13 +1949,15 @@ export default function Home() {
         }}
       />
       <EditPostModal
+        key={editingPost?.id || 'none'}
         isOpen={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         onSuccess={fetchPosts}
         post={editingPost ? {
           id: editingPost.id,
           content: editingPost.content,
-          title: editingPost.title || ''
+          title: editingPost.title || '',
+          post_type: editingPost.post_type
         } : { id: '', content: '', title: '' }}
       />
 

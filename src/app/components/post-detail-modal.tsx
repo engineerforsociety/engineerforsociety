@@ -98,44 +98,7 @@ export function PostDetailModal({ isOpen, onOpenChange, post: initialPost, curre
     const supabase = createClient();
     const { toast } = useToast();
 
-    // Helper to render formatted text (reusing logic from page.tsx)
-    const renderFormattedContent = (content: string) => {
-        if (!content) return null;
-        const paragraphs = content.split('\n');
 
-        return paragraphs.map((paragraph, pIndex) => {
-            if (!paragraph.trim()) return <br key={pIndex} />;
-
-            const parts = [];
-            let lastIndex = 0;
-            const regex = /(\*\*(.*?)\*\*)|(\*(.*?)\*)/g;
-            let match;
-
-            while ((match = regex.exec(paragraph)) !== null) {
-                if (match.index > lastIndex) {
-                    parts.push(paragraph.substring(lastIndex, match.index));
-                }
-
-                if (match[2]) { // Bold
-                    parts.push(<strong key={`${pIndex}-${match.index}`} className="font-bold text-foreground">{match[2]}</strong>);
-                } else if (match[4]) { // Italic
-                    parts.push(<em key={`${pIndex}-${match.index}`} className="italic">{match[4]}</em>);
-                }
-
-                lastIndex = regex.lastIndex;
-            }
-
-            if (lastIndex < paragraph.length) {
-                parts.push(paragraph.substring(lastIndex));
-            }
-
-            return (
-                <div key={pIndex}>
-                    {parts.length > 0 ? parts : paragraph}
-                </div>
-            );
-        });
-    };
 
     const formatTime = (date: string) => {
         try {
@@ -408,9 +371,21 @@ export function PostDetailModal({ isOpen, onOpenChange, post: initialPost, curre
                                 </h1>
                             )}
 
-                            <div className="text-base leading-relaxed text-foreground/90 space-y-1">
-                                {renderFormattedContent(post.content)}
-                            </div>
+                            <div
+                                className="text-base leading-relaxed text-foreground/90 
+                                       [&>p]:mb-2 [&>p]:min-h-[1.2rem]
+                                       [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-2
+                                       [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:mb-2
+                                       [&_li]:mb-0.5
+                                       [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800
+                                       [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:my-2
+                                       [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:font-mono [&_code]:text-xs
+                                       [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2
+                                       [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2
+                                       [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1
+                                       [&_img]:rounded-md [&_img]:max-w-full [&_img]:h-auto [&_img]:my-2"
+                                dangerouslySetInnerHTML={{ __html: post.content }}
+                            />
 
                             {post.tags && post.tags.length > 0 && (
                                 <div className="flex gap-2 flex-wrap pt-2">

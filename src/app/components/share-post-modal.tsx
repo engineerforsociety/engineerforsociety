@@ -23,6 +23,7 @@ type SharePostModalProps = {
   onRepost?: () => void;
   isRepost?: boolean;
   repostId?: string;
+  postType?: 'social' | 'forum';
 };
 
 type Follower = {
@@ -32,7 +33,7 @@ type Follower = {
   job_title: string | null;
 };
 
-export function SharePostModal({ isOpen, onOpenChange, postId, currentUserId, onRepost, isRepost, repostId }: SharePostModalProps) {
+export function SharePostModal({ isOpen, onOpenChange, postId, currentUserId, onRepost, isRepost, repostId, postType = 'forum' }: SharePostModalProps) {
   const [followers, setFollowers] = useState<Follower[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedFollowers, setSelectedFollowers] = useState<Set<string>>(new Set());
@@ -105,17 +106,28 @@ export function SharePostModal({ isOpen, onOpenChange, postId, currentUserId, on
 
     setLoading(true);
     try {
+      // Choose table based on post type
+      const table = postType === 'social' ? 'social_post_shares' : 'forum_post_shares';
+
       // Create share records for each selected follower
-      const shareRecords = Array.from(selectedFollowers).map(followerId => ({
-        post_id: postId,
-        user_id: followerId,
-        share_type: 'message',
-        is_from_repost: !!isRepost,
-        repost_id: isRepost ? repostId : null
-      }));
+      const shareRecords = Array.from(selectedFollowers).map(followerId => {
+        const record: any = {
+          post_id: postId,
+          user_id: followerId,
+          share_type: 'message'
+        };
+
+        // Extra fields only exist on forum_post_shares for now
+        if (postType === 'forum') {
+          record.is_from_repost = !!isRepost;
+          record.repost_id = isRepost ? repostId : null;
+        }
+
+        return record;
+      });
 
       const { error } = await supabase
-        .from('forum_post_shares')
+        .from(table)
         .insert(shareRecords);
 
       if (error) throw error;

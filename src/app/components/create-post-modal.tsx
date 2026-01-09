@@ -193,8 +193,8 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
       if (!userId) throw new Error("You must be signed in to post.");
 
       let finalContent = postContent;
-      if (activeTab === 'image_video' && videoLink) finalContent += `\n\n[Video](${videoLink})`;
-      if (activeTab === 'link' && linkUrl) finalContent += `\n\n[Link](${linkUrl})`;
+      if (activeTab === 'image_video' && videoLink) finalContent += `<p><br></p><p><b>Video:</b> <a href="${videoLink}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${videoLink}</a></p>`;
+      if (activeTab === 'link' && linkUrl) finalContent += `<p><br></p><p><b>Link:</b> <a href="${linkUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${linkUrl}</a></p>`;
       if (activeTab === 'poll') {
         const validOptions = pollOptions.filter(o => o.trim());
         if (validOptions.length >= 2) finalContent += `\n\n[Poll: ${validOptions.join(', ')}]`;
@@ -258,7 +258,7 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
 
   const execCommand = (command: string, value?: string) => {
     document.execCommand(command, false, value);
-    if (contentEditableRef.current) setPostContent(contentEditableRef.current.innerText);
+    if (contentEditableRef.current) setPostContent(contentEditableRef.current.innerHTML);
   };
 
   const filteredCategories = categories.filter(cat =>
@@ -419,7 +419,7 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
                         contentEditable
                         className="min-h-[220px] outline-none text-xl text-zinc-700 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-200 font-medium"
                         data-placeholder={internalPostType === 'forum' ? "Tell us more about it..." : "What do you want to share?"}
-                        onInput={(e) => setPostContent(e.currentTarget.innerText)}
+                        onInput={(e) => setPostContent(e.currentTarget.innerHTML)}
                       />
                     </div>
                     {/* Inline Formatting Bar */}

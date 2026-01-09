@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 
 type SavedPost = {
     id: string;
-    title: string;
+    title: string | null;
     content: string;
     created_at: string;
     saved_at: string;
@@ -23,6 +23,7 @@ type SavedPost = {
     author_name?: string;
     author_avatar?: string;
     slug: string;
+    post_type: 'social' | 'forum';
 };
 
 export default function SavedPostsPage() {
@@ -45,8 +46,8 @@ export default function SavedPostsPage() {
             }
             setUser(user);
 
-            // Fetch saved posts with author details
-            const { data, error } = await supabase
+            // Fetch saved forum posts
+            const forumPromise = supabase
                 .from('forum_post_saves')
                 .select(`
                     id,
@@ -65,13 +66,36 @@ export default function SavedPostsPage() {
                         )
                     )
                 `)
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
+                .eq('user_id', user.id);
 
-            if (error) throw error;
+            // Fetch saved social posts
+            const socialPromise = supabase
+                .from('social_post_saves')
+                .select(`
+                    id,
+                    created_at,
+                    post_id,
+                    social_posts (
+                        id,
+                        content,
+                        created_at,
+                        slug,
+                        author_id,
+                        profiles (
+                            full_name,
+                            avatar_url
+                        )
+                    )
+                `)
+                .eq('user_id', user.id);
 
-            const formattedPosts = data?.map((item: any) => ({
-                id: item.forum_posts.id, // We use post's id for navigation/unsaving
+            const [forumRes, socialRes] = await Promise.all([forumPromise, socialPromise]);
+
+            if (forumRes.error) throw forumRes.error;
+            if (socialRes.error) throw socialRes.error;
+
+            const forumPosts = forumRes.data?.map((item: any) => ({
+                id: item.forum_posts.id,
                 save_record_id: item.id,
                 title: item.forum_posts.title,
                 content: item.forum_posts.content,
@@ -80,10 +104,29 @@ export default function SavedPostsPage() {
                 author_id: item.forum_posts.author_id,
                 author_name: item.forum_posts.profiles?.full_name || 'Anonymous',
                 author_avatar: item.forum_posts.profiles?.avatar_url,
-                slug: item.forum_posts.slug
+                slug: item.forum_posts.slug,
+                post_type: 'forum' as const
             })) || [];
 
-            setPosts(formattedPosts);
+            const socialPosts = socialRes.data?.map((item: any) => ({
+                id: item.social_posts.id,
+                save_record_id: item.id,
+                title: null,
+                content: item.social_posts.content,
+                created_at: item.social_posts.created_at,
+                saved_at: item.created_at,
+                author_id: item.social_posts.author_id,
+                author_name: item.social_posts.profiles?.full_name || 'Anonymous',
+                author_avatar: item.social_posts.profiles?.avatar_url,
+                slug: item.social_posts.slug,
+                post_type: 'social' as const
+            })) || [];
+
+            const allSavedPosts = [...forumPosts, ...socialPosts].sort((a, b) =>
+                new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime()
+            );
+
+            setPosts(allSavedPosts);
         } catch (err: any) {
             console.error('Error fetching saved posts:', err);
             toast({ title: 'Error', description: 'Failed to load your saved posts.', variant: 'destructive' });
@@ -96,11 +139,12 @@ export default function SavedPostsPage() {
         fetchSavedPosts();
     }, [supabase]);
 
-    const handleUnsave = async (postId: string) => {
+    const handleUnsave = async (postId: string, postType: 'social' | 'forum') => {
         setUnsavingId(postId);
         try {
+            const table = postType === 'social' ? 'social_post_saves' : 'forum_post_saves';
             const { error } = await supabase
-                .from('forum_post_saves')
+                .from(table)
                 .delete()
                 .eq('post_id', postId)
                 .eq('user_id', user.id);
@@ -175,7 +219,7 @@ export default function SavedPostsPage() {
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => handleUnsave(post.id)}
+                                        onClick={() => handleUnsave(post.id, post.post_type)}
                                         disabled={unsavingId === post.id}
                                         className="text-muted-foreground hover:text-destructive"
                                     >
@@ -189,12 +233,16 @@ export default function SavedPostsPage() {
                                 </div>
                             </CardHeader>
                             <CardContent className="pt-4">
-                                <h3 className="text-lg font-bold mb-2 leading-tight">
-                                    {post.title}
-                                </h3>
-                                <p className="text-sm text-foreground/80 line-clamp-3 whitespace-pre-wrap">
-                                    {post.content}
-                                </p>
+                                {post.title && (
+                                    <h3 className="text-lg font-bold mb-2 leading-tight">
+                                        {post.title}
+                                    </h3>
+                                )}
+                                <div
+                                    className="text-sm text-foreground/80 line-clamp-3 
+                                               [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4"
+                                    dangerouslySetInnerHTML={{ __html: post.content }}
+                                />
                             </CardContent>
                             <CardFooter className="pt-2 border-t text-xs text-muted-foreground flex justify-between">
                                 <span>Saved {formatTime(post.saved_at)}</span>

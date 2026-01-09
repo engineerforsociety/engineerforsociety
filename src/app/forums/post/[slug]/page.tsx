@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -17,8 +17,10 @@ import {
     Send,
     Repeat2,
     Globe,
-    Plus
+    Plus,
+    Edit
 } from 'lucide-react';
+import { EditPostModal } from '@/app/components/edit-post-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -81,6 +83,7 @@ export default function PostDetailPage() {
     const [loading, setLoading] = useState(true);
     const [newComment, setNewComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [user, setUser] = useState<any>(null);
     const supabase = createClient();
@@ -95,99 +98,99 @@ export default function PostDetailPage() {
         }
     };
 
-    useEffect(() => {
-        const fetchPostAndComments = async () => {
-            setLoading(true);
-            try {
-                // Get current user
-                const { data: { user: currentUser } } = await supabase.auth.getUser();
-                setUser(currentUser);
+    const fetchPostAndComments = useCallback(async () => {
+        setLoading(true);
+        try {
+            // Get current user
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            setUser(currentUser);
 
-                if (!slug || slug === 'undefined') {
-                    setLoading(false);
-                    return;
-                }
-
-                // Check for repost context in URL
-                const urlParams = new URLSearchParams(window.location.search);
-                const repostId = urlParams.get('repost');
-
-                // Fetch post details from the view
-                let query = supabase
-                    .from('feed_posts_view')
-                    .select('*')
-                    .eq('slug', slug);
-
-                if (repostId) {
-                    query = query.eq('repost_record_id', repostId);
-                } else {
-                    query = query.eq('item_type', 'post');
-                }
-
-                const { data: postData, error: postError } = await query.maybeSingle();
-
-                if (postError) throw postError;
-                if (!postData) {
-                    setPost(null);
-                    setLoading(false);
-                    return;
-                }
-                const formattedPost = postData as PostDetails;
-                setPost(formattedPost);
-
-                // Increment view count (only for forum posts)
-                if (postData.post_type === 'forum') {
-                    await supabase
-                        .from('forum_posts')
-                        .update({ view_count: (postData.view_count || 0) + 1 })
-                        .eq('id', postData.id);
-                }
-
-                // Fetch comments based on item type and post type
-                let commentQuery;
-                if (formattedPost.item_type === 'repost') {
-                    commentQuery = supabase
-                        .from('repost_comments')
-                        .select('id, content, created_at, author_id, profiles(full_name, avatar_url)')
-                        .eq('repost_id', formattedPost.repost_record_id);
-                } else {
-                    const table = formattedPost.post_type === 'social' ? 'social_comments' : 'forum_comments';
-                    commentQuery = supabase
-                        .from(table)
-                        .select('id, content, created_at, author_id, profiles(full_name, avatar_url)')
-                        .eq('post_id', formattedPost.id);
-                }
-
-                const { data: commentData, error: commentError } = await commentQuery.order('created_at', { ascending: true });
-
-                if (commentError) {
-                    console.error('Error fetching comments:', commentError);
-                } else {
-                    const formattedComments = (commentData || [])?.map((c: any) => ({
-                        id: c.id,
-                        content: c.content,
-                        created_at: c.created_at,
-                        author_id: c.author_id,
-                        author_name: c.profiles?.full_name || 'Anonymous',
-                        author_avatar: c.profiles?.avatar_url
-                    })) || [];
-                    setComments(formattedComments);
-                }
-            } catch (err: any) {
-                console.error('Error fetching post:', {
-                    message: err.message,
-                    details: err.details,
-                    hint: err.hint,
-                    code: err.code
-                });
-                toast({ title: 'Error', description: err.message || 'Failed to load post.', variant: 'destructive' });
-            } finally {
+            if (!slug || slug === 'undefined') {
                 setLoading(false);
+                return;
             }
-        };
 
-        if (slug) fetchPostAndComments();
+            // Check for repost context in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const repostId = urlParams.get('repost');
+
+            // Fetch post details from the view
+            let query = supabase
+                .from('feed_posts_view')
+                .select('*')
+                .eq('slug', slug);
+
+            if (repostId) {
+                query = query.eq('repost_record_id', repostId);
+            } else {
+                query = query.eq('item_type', 'post');
+            }
+
+            const { data: postData, error: postError } = await query.maybeSingle();
+
+            if (postError) throw postError;
+            if (!postData) {
+                setPost(null);
+                setLoading(false);
+                return;
+            }
+            const formattedPost = postData as PostDetails;
+            setPost(formattedPost);
+
+            // Increment view count (only for forum posts)
+            if (postData.post_type === 'forum') {
+                await supabase
+                    .from('forum_posts')
+                    .update({ view_count: (postData.view_count || 0) + 1 })
+                    .eq('id', postData.id);
+            }
+
+            // Fetch comments based on item type and post type
+            let commentQuery;
+            if (formattedPost.item_type === 'repost') {
+                commentQuery = supabase
+                    .from('repost_comments')
+                    .select('id, content, created_at, author_id, profiles(full_name, avatar_url)')
+                    .eq('repost_id', formattedPost.repost_record_id);
+            } else {
+                const table = formattedPost.post_type === 'social' ? 'social_comments' : 'forum_comments';
+                commentQuery = supabase
+                    .from(table)
+                    .select('id, content, created_at, author_id, profiles(full_name, avatar_url)')
+                    .eq('post_id', formattedPost.id);
+            }
+
+            const { data: commentData, error: commentError } = await commentQuery.order('created_at', { ascending: true });
+
+            if (commentError) {
+                console.error('Error fetching comments:', commentError);
+            } else {
+                const formattedComments = (commentData || [])?.map((c: any) => ({
+                    id: c.id,
+                    content: c.content,
+                    created_at: c.created_at,
+                    author_id: c.author_id,
+                    author_name: c.profiles?.full_name || 'Anonymous',
+                    author_avatar: c.profiles?.avatar_url
+                })) || [];
+                setComments(formattedComments);
+            }
+        } catch (err: any) {
+            console.error('Error fetching post:', {
+                message: err.message,
+                details: err.details,
+                hint: err.hint,
+                code: err.code
+            });
+            toast({ title: 'Error', description: err.message || 'Failed to load post.', variant: 'destructive' });
+        } finally {
+            setLoading(false);
+        }
     }, [slug, supabase, toast]);
+
+    useEffect(() => {
+        if (slug) fetchPostAndComments();
+    }, [slug, fetchPostAndComments]);
 
     const handleLike = async () => {
         if (!user) {
@@ -387,10 +390,20 @@ export default function PostDetailPage() {
                                 </div>
                             </div>
                         </div>
-                        {user?.id !== post.author_id && (
+                        {user?.id !== post.author_id ? (
                             <Button variant="outline" size="sm" className="rounded-full border-primary text-primary font-bold px-4 h-9 hover:bg-primary/5 flex items-center gap-1">
                                 <Plus className="h-4 w-4" />
                                 {post.is_following ? 'Following' : 'Follow'}
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full border-zinc-200 text-zinc-600 font-bold px-4 h-9 hover:bg-zinc-50 flex items-center gap-2 transition-all"
+                                onClick={() => setIsEditModalOpen(true)}
+                            >
+                                <Edit className="h-4 w-4" />
+                                Edit Post
                             </Button>
                         )}
                     </div>
@@ -403,9 +416,21 @@ export default function PostDetailPage() {
 
                 <Card className="border-none shadow-none bg-background">
                     <CardContent className="px-0 py-4">
-                        <div className="text-lg leading-relaxed whitespace-pre-wrap text-foreground/90">
-                            {post.content}
-                        </div>
+                        <div
+                            className="text-lg leading-relaxed text-foreground/90 
+                                [&>p]:mb-4 [&>p]:min-h-[1.2em]
+                                [&>ul]:list-disc [&>ul]:pl-6 [&>ul]:mb-4
+                                [&>ol]:list-decimal [&>ol]:pl-6 [&>ol]:mb-4
+                                [&_li]:mb-1
+                                [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800
+                                [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4
+                                [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:font-mono [&_code]:text-sm
+                                [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-4
+                                [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-3
+                                [&_h3]:text-lg [&_h3]:font-bold [&_h3]:mb-2
+                                [&_img]:rounded-lg [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4"
+                            dangerouslySetInnerHTML={{ __html: post.content }}
+                        />
                     </CardContent>
 
                     {post.tags && post.tags.length > 0 && (
@@ -545,6 +570,24 @@ export default function PostDetailPage() {
                     )}
                 </div>
             </section>
-        </div>
+
+
+            {
+                post && (
+                    <EditPostModal
+                        key={post.id}
+                        isOpen={isEditModalOpen}
+                        onOpenChange={setIsEditModalOpen}
+                        onSuccess={fetchPostAndComments}
+                        post={{
+                            id: post.id,
+                            content: post.content,
+                            title: post.title || '',
+                            post_type: post.post_type
+                        }}
+                    />
+                )
+            }
+        </div >
     );
 }

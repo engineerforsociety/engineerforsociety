@@ -102,8 +102,8 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
         .limit(10);
 
       if (activeTab === 'posts') {
-        // Fetch 'forum_post' (from forum_posts), 'social_post', and 'repost'
-        query = query.in('activity_type', ['forum_post', 'social_post', 'repost']);
+        // Fetch 'post' (from forum_posts), 'social_post', and 'repost'
+        query = query.in('activity_type', ['post', 'social_post', 'repost']);
       } else if (activeTab === 'comments') {
         query = query.eq('activity_type', 'comment');
       } else if (activeTab === 'articles') {
@@ -253,14 +253,17 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
                       </CardHeader>
                       <CardContent className="px-4 py-2 flex-1">
                         <div className="space-y-3">
-                          <p className="text-[14px] leading-snug line-clamp-4">
+                          <div className="text-[14px] leading-snug line-clamp-4 space-y-2">
                             {activity.activity_type === 'comment' ? (
                               <span className="italic block mb-2 text-muted-foreground text-[13px]">
                                 Commented on "{activity.post_title}"
                               </span>
                             ) : null}
-                            {activity.activity_type === 'comment' ? activity.comment_content : (activity.post_content || activity.activity_data?.post_content)}
-                          </p>
+                            <div
+                              className="[&>p]:mb-1 [&>a]:text-primary [&>a]:hover:underline"
+                              dangerouslySetInnerHTML={{ __html: (activity.activity_type === 'comment' ? activity.comment_content : (activity.post_content || activity.activity_data?.post_content)) || '' }}
+                            />
+                          </div>
 
                           {activity.activity_type === 'repost' && (
                             <div className="border border-border/50 rounded-xl p-3 bg-muted/5 space-y-2 mt-2">
@@ -275,9 +278,10 @@ export function ActivitySection({ userId, isOwnProfile = false }: ActivitySectio
                                 </div>
                               </div>
                               <h4 className="font-bold text-[13px] line-clamp-1">{activity.post_title}</h4>
-                              <p className="text-[12px] text-muted-foreground line-clamp-2">
-                                {activity.post_content || activity.activity_data?.post_content}
-                              </p>
+                              <div
+                                className="text-[12px] text-muted-foreground line-clamp-2 [&>p]:mb-1"
+                                dangerouslySetInnerHTML={{ __html: (activity.post_content || activity.activity_data?.post_content) || '' }}
+                              />
                             </div>
                           )}
                         </div>

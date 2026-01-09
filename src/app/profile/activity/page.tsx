@@ -179,9 +179,10 @@ export default function UserActivityPage() {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap">
-                                    {post.content}
-                                </p>
+                                <div
+                                    className="text-sm text-muted-foreground line-clamp-3 [&>p]:mb-1"
+                                    dangerouslySetInnerHTML={{ __html: post.content || '' }}
+                                />
                             </CardContent>
                         </Card>
                     ))}

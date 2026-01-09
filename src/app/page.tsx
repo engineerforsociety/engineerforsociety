@@ -1247,6 +1247,7 @@ export default function Home() {
     }
   };
   const supabase = createClient();
+  const { toast } = useToast();
   const pathname = usePathname();
 
   const fetchPosts = useCallback(async () => {
@@ -1529,15 +1530,6 @@ export default function Home() {
     <>
       <div className="p-2 sm:p-4 lg:pb-6 lg:pr-6 lg:pl-2 lg:pt-0 bg-muted/40 font-body">
         <div className="w-full mx-auto px-1 lg:pl-1 lg:pr-2">
-          <CreatePostModal
-            isOpen={isPostModalOpen}
-            initialType={modalInitialType}
-            onOpenChange={setIsPostModalOpen}
-            onSuccess={fetchPosts}
-            profile={profile}
-          />
-          <PostJobModal isOpen={isJobModalOpen} onOpenChange={setIsJobModalOpen} />
-
           <div className="grid lg:grid-cols-6 gap-4">
             {/* Left Sidebar - Navigation */}
             <aside className="lg:col-span-1 hidden lg:block">
@@ -1840,6 +1832,21 @@ export default function Home() {
           </div>
         </div>
       </div >
+      <CreatePostModal
+        isOpen={isPostModalOpen}
+        onOpenChange={setIsPostModalOpen}
+        initialType={modalInitialType}
+        onSuccess={fetchPosts}
+        profile={profile}
+      />
+      <PostJobModal
+        isOpen={isJobModalOpen}
+        onOpenChange={setIsJobModalOpen}
+        onSuccess={() => {
+          fetchPosts();
+          toast({ title: 'Job Posted', description: 'Your job listing is now live.' });
+        }}
+      />
       <EditPostModal
         isOpen={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}

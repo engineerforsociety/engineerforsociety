@@ -24,9 +24,10 @@ import { useRouter } from 'next/navigation';
 type PostJobModalProps = {
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
+    onSuccess?: () => void;
 };
 
-export function PostJobModal({ isOpen, onOpenChange }: PostJobModalProps) {
+export function PostJobModal({ isOpen, onOpenChange, onSuccess }: PostJobModalProps) {
     const [loading, setLoading] = useState(false);
     const supabase = createClient();
     const { toast } = useToast();
@@ -81,6 +82,7 @@ export function PostJobModal({ isOpen, onOpenChange }: PostJobModalProps) {
             if (error) throw error;
 
             toast({ title: 'Success', description: 'Job posted successfully!' });
+            if (onSuccess) onSuccess();
             onOpenChange(false);
             router.refresh(); // Refresh the page to show the new job
         } catch (error: any) {

@@ -92,7 +92,7 @@ type FeedPost = {
   author_name: string;
   author_avatar: string;
   author_title: string;
-  post_type: 'forum' | 'social';
+  post_type: 'forum' | 'social' | 'resource';
   item_type: 'post' | 'repost';
 
   // Original post counts
@@ -111,6 +111,12 @@ type FeedPost = {
   repost_record_id?: string;
 
   is_following?: boolean;
+
+  // Resource specific
+  resource_category?: string;
+  resource_discipline?: string;
+  resource_type_label?: string;
+  external_url?: string;
 };
 
 type SuggestedUser = {
@@ -322,6 +328,16 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
           setIsLiked(true);
           setLikeCount((prev: number) => prev + 1);
         }
+      } else if (post.post_type === 'resource') {
+        if (isLiked) {
+          await supabase.from('resource_interactions').delete().eq('resource_id', post.id).eq('user_id', currentUserId).eq('interaction_type', 'upvote');
+          setIsLiked(false);
+          setLikeCount((prev: number) => Math.max(0, prev - 1));
+        } else {
+          await supabase.from('resource_interactions').insert({ resource_id: post.id, user_id: currentUserId, interaction_type: 'upvote' });
+          setIsLiked(true);
+          setLikeCount((prev: number) => prev + 1);
+        }
       } else {
         const table = post.post_type === 'social' ? 'social_post_reactions' : 'forum_post_reactions';
         if (isLiked) {
@@ -364,6 +380,16 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
           toast({ title: "Removed", description: "Removed from your saved items." });
         } else {
           await supabase.from('repost_saves').insert({ repost_id: post.repost_record_id, user_id: currentUserId });
+          setIsSaved(true);
+          toast({ title: "Saved", description: "Added to your saved items." });
+        }
+      } else if (post.post_type === 'resource') {
+        if (isSaved) {
+          await supabase.from('resource_interactions').delete().eq('resource_id', post.id).eq('user_id', currentUserId).eq('interaction_type', 'bookmark');
+          setIsSaved(false);
+          toast({ title: "Removed", description: "Removed from your saved items." });
+        } else {
+          await supabase.from('resource_interactions').insert({ resource_id: post.id, user_id: currentUserId, interaction_type: 'bookmark' });
           setIsSaved(true);
           toast({ title: "Saved", description: "Added to your saved items." });
         }
@@ -640,7 +666,7 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
   };
 
   return (
-    <Card className={`overflow-hidden transition-all duration-200 ${post.post_type === 'forum' ? 'border-l-4 border-l-blue-500/80 shadow-sm' : ''}`}>
+    <Card className={`overflow-hidden transition-all duration-200 ${post.post_type === 'forum' ? 'border-l-4 border-l-blue-500/80 shadow-sm' : post.post_type === 'resource' ? 'border-l-4 border-l-green-500/80 shadow-sm bg-gradient-to-br from-white to-green-50/20 dark:from-zinc-950 dark:to-green-950/10' : ''}`}>
       <CardHeader>
         <div className="flex items-center gap-4">
           <Link
@@ -685,6 +711,12 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
                   Discussion
                 </Badge>
               )}
+              {post.post_type === 'resource' && (
+                <Badge variant="secondary" className="h-[18px] px-1.5 text-[10px] bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800 gap-1 font-medium">
+                  <BookOpen className="h-2.5 w-2.5" />
+                  Resource
+                </Badge>
+              )}
             </CardDescription>
           </div>
           <DropdownMenu>
@@ -720,7 +752,7 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
               {currentUserId === (post.item_type === 'repost' ? post.reposter_id : post.author_id) && (
                 <>
                   <DropdownMenuSeparator />
-                  {!isRepost && (
+                  {!isRepost && post.post_type !== 'resource' && (
                     <DropdownMenuItem onSelect={(e) => {
                       e.preventDefault();
                       onEdit?.(post);
@@ -786,6 +818,50 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
                 ))}
               </div>
             )}
+          </div>
+        ) : post.post_type === 'resource' ? (
+          <div className="space-y-4">
+            <div
+              className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 group cursor-pointer hover:bg-emerald-100/50 dark:hover:bg-emerald-900/20 transition-all duration-300"
+              onClick={() => router.push(`/resources/${post.slug}`)}
+            >
+              <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-sm border border-emerald-200 dark:border-emerald-800 group-hover:scale-105 group-hover:rotate-3 transition-all duration-300 flex-shrink-0">
+                <BookCopy className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="flex-1 space-y-2 text-center sm:text-left">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-100/50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">{post.resource_category}</span>
+                  <span className="text-muted-foreground text-[10px] hidden sm:inline">•</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{post.resource_type_label?.replace('_', ' ')}</span>
+                </div>
+                <h3 className="font-bold text-xl text-foreground group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors leading-tight">{post.title}</h3>
+                <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed italic">
+                  &ldquo;{post.content}&rdquo;
+                </p>
+                <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-4">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <Activity className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>{post.view_count || 0} views</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>{post.like_count || 0} upvotes</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/20 px-6 font-bold"
+                asChild
+              >
+                <Link href={`/resources/${post.slug}`}>
+                  Explore Resource
+                </Link>
+              </Button>
+            </div>
           </div>
         ) : (
           (() => {
@@ -867,24 +943,26 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
           >
             <Heart className={`h-5 w-5 ${isLiked ? 'fill-current' : ''}`} /> {likeCount}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn("flex items-center gap-2", isCommentsExpanded && "text-primary")}
-            onClick={handleToggleComments}
-          >
-            <MessageSquare className="h-5 w-5" /> {commentCount}
-          </Button>
+          {post.post_type !== 'resource' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn("flex items-center gap-2", isCommentsExpanded && "text-primary")}
+              onClick={handleToggleComments}
+            >
+              <MessageSquare className="h-5 w-5" /> {commentCount}
+            </Button>
+          )}
         </div>
         <div className='flex gap-1'>
           <Button
             variant="ghost"
             size="sm"
             className="flex items-center gap-2"
-            onClick={handleShare}
+            onClick={post.post_type === 'resource' ? handleCopyLink : handleShare}
             disabled={isProcessing}
           >
-            <Send className="h-5 w-5" /> Share
+            <Send className="h-5 w-5" /> {post.post_type === 'resource' ? 'Copy Link' : 'Share'}
           </Button>
           <Button
             variant="ghost"
@@ -1262,10 +1340,38 @@ export default function Home() {
 
       if (forumRepostError) throw forumRepostError;
 
+      // Fetch resources
+      const { data: resourceData, error: resourceError } = await supabase
+        .from('resources')
+        .select(`
+          id,
+          title,
+          description,
+          created_at,
+          author_id,
+          slug,
+          view_count,
+          upvote_count,
+          bookmark_count,
+          category,
+          discipline,
+          resource_type,
+          external_url,
+          tags
+        `)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(15);
+
+      if (resourceError) throw resourceError;
+
       // Get all unique profile IDs to fetch profiles
       const profileIds = new Set<string>();
       forumData?.forEach(p => profileIds.add(p.author_id));
       socialData?.forEach(p => profileIds.add(p.author_id));
+      resourceData?.forEach(r => {
+        if (r.author_id) profileIds.add(r.author_id);
+      });
 
       socialShareData?.forEach(s => {
         profileIds.add(s.user_id);
@@ -1450,12 +1556,46 @@ export default function Home() {
           };
         }).filter(Boolean);
 
+      // Transform resources
+      const formattedResources = (resourceData || []).map(resource => {
+        const author = resource.author_id ? profilesMap.get(resource.author_id) : null;
+        const likeCount = resource.upvote_count || 0;
+        const commentCount = 0;
+
+        return {
+          id: resource.id,
+          feed_item_id: `resource-${resource.id}`,
+          title: resource.title,
+          content: resource.description || '',
+          created_at: resource.created_at,
+          feed_created_at: resource.created_at,
+          view_count: resource.view_count || 0,
+          slug: resource.slug || '',
+          author_id: resource.author_id || '',
+          author_name: author?.full_name || 'Engineering Portal',
+          author_avatar: author?.avatar_url,
+          author_title: author?.job_title || 'Verified Resource',
+          post_type: 'resource' as const,
+          item_type: 'post' as const,
+          like_count: likeCount,
+          comment_count: commentCount,
+          tags: resource.tags,
+          is_pinned: false,
+          engagement_score: calculateEngagementScore(likeCount, commentCount, resource.view_count || 0, resource.created_at) + 15, // Slight boost for resources
+          resource_category: resource.category,
+          resource_discipline: resource.discipline,
+          resource_type_label: resource.resource_type,
+          external_url: resource.external_url,
+        };
+      });
+
       // Merge and sort by engagement score (smart algorithm)
       const allPosts = ([
         ...formattedForumPosts,
         ...formattedSocialPosts,
         ...formattedSocialShares,
-        ...formattedForumReposts
+        ...formattedForumReposts,
+        ...formattedResources
       ].filter(p => p !== null) as any[]).sort((a, b) => {
         // Primary sort by engagement score
         const scoreDiff = (b.engagement_score || 0) - (a.engagement_score || 0);

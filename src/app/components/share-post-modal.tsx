@@ -23,7 +23,7 @@ type SharePostModalProps = {
   onRepost?: () => void;
   isRepost?: boolean;
   repostId?: string;
-  postType?: 'social' | 'forum';
+  postType?: 'social' | 'forum' | 'resource';
 };
 
 type Follower = {
@@ -227,14 +227,16 @@ export function SharePostModal({ isOpen, onOpenChange, postId, currentUserId, on
               Share with {selectedFollowers.size > 0 ? `${selectedFollowers.size} ` : ''}Selected
             </Button>
 
-            <Button
-              onClick={handleRepost}
-              variant="outline"
-              className="w-full"
-            >
-              <Repeat2 className="mr-2 h-4 w-4" />
-              Repost to your profile
-            </Button>
+            {postType !== 'resource' && (
+              <Button
+                onClick={handleRepost}
+                variant="outline"
+                className="w-full"
+              >
+                <Repeat2 className="mr-2 h-4 w-4" />
+                Repost to your profile
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

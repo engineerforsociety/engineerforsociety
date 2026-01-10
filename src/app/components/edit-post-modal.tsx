@@ -29,7 +29,7 @@ type EditPostModalProps = {
         id: string;
         content: string;
         title: string;
-        post_type?: 'social' | 'forum';
+        post_type?: 'social' | 'forum' | 'resource';
     };
     onSuccess?: () => void;
 };

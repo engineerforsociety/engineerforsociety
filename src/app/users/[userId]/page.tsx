@@ -71,11 +71,11 @@ async function getProfileData(userId: string, currentUserId?: string) {
 }
 
 
-export default async function UserProfilePage({ params }: { params: { userId: string } }) {
+export default async function UserProfilePage({ params }: { params: Promise<{ userId: string }> }) {
     const supabase = await createClient();
     const { data: { user: currentUser } } = await supabase.auth.getUser();
 
-    const { userId } = params;
+    const { userId } = await params;
     const { profile, experiences, educations, connection, followerCount, connectionCount } = await getProfileData(userId, currentUser?.id);
 
     if (!profile) {

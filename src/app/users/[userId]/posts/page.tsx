@@ -92,8 +92,8 @@ async function getPostsData(userId: string) {
     return { profile, forumPosts: formattedForumPosts, socialPosts: formattedSocialPosts };
 }
 
-export default async function UserPostsPage({ params }: { params: { userId: string } }) {
-    const { userId } = params;
+export default async function UserPostsPage({ params }: { params: Promise<{ userId: string }> }) {
+    const { userId } = await params;
     const { profile, forumPosts, socialPosts } = await getPostsData(userId);
 
     const formatDate = (dateString: string) => {

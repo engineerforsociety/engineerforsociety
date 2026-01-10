@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
     FileText,
     Github,
@@ -30,9 +30,24 @@ import {
     Loader2,
     Mic,
     PencilRuler,
-    Calendar
+    Calendar,
+    Award,
+    ThumbsUp,
+    Bookmark,
+    Share2,
+    Flag,
+    History,
+    TrendingUp,
+    Building2,
+    FileSearch,
+    UserCheck,
+    Globe,
+    Layers,
+    ListFilter,
+    ChevronDown,
+    XCircle
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,187 +60,76 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { ResourceUploadModal } from './resource-upload-modal';
-import { ResourceDetailModal } from './resource-detail-modal';
-import { fetchResources } from './actions';
-import { useEffect } from 'react';
+import { fetchResources, toggleInteraction } from './actions';
+import { useToast } from '@/hooks/use-toast';
 
-// Types for our library
+// Types
 type ResourceDiscipline = 'General' | 'CSE' | 'Civil' | 'EEE' | 'Textile' | 'Mechanical' | 'Architecture';
-type ResourceCategory =
-    | 'Academic/Research'
-    | 'Digital & Coding'
-    | 'Visual/Learning'
-    | 'Technical/Design'
-    | 'Industry Standard'
-    | 'Career Growth'
-    | 'Practical Tools';
+type ResourceCategory = 'Knowledge & Research' | 'Code & Tools' | 'Career & Learning';
 
 interface EngineeringResource {
     id: string;
     title: string;
     description: string;
-    type:
-    | 'document' | 'template' | 'github' | 'youtube' | 'ieee' | 'research_paper' | 'tool' | 'conference'
-    | 'podcast' | 'cad_blueprint' | 'standard_codes' | 'safety_manual' | 'resume' | 'interview_prep'
-    | 'certification_prep' | 'excel_calc' | 'case_study';
+    resource_type: string;
     category: ResourceCategory;
     discipline: ResourceDiscipline;
-    author: string;
-    fileSize?: string;
-    fileType?: string;
-    url?: string;
-    downloads: number;
-    views: number;
-    date: string;
-    isPremium?: boolean;
+    author_id: string;
+    author_name: string;
+    author_avatar?: string;
+    author_org?: string;
+    external_url: string;
+    embed_url?: string;
+    upvote_count: number;
+    bookmark_count: number;
+    view_count: number;
+    created_at: string;
+    year?: string;
+    license?: string;
+    skill_level: 'Beginner' | 'Intermediate' | 'Advanced';
+    is_premium?: boolean;
+    tags: string[];
+    slug: string;
 }
 
-const SAMPLE_RESOURCES: EngineeringResource[] = [
-    {
-        id: '1',
-        title: 'BNBC 2020: Part 6 (Structural Design)',
-        description: 'The definitive Bangladesh National Building Code for structural engineering and safety standards.',
-        type: 'document',
-        category: 'Industry Standard',
-        discipline: 'Civil',
-        author: 'PWD Bangladesh',
-        fileSize: '12.4 MB',
-        fileType: 'PDF',
-        downloads: 1250,
-        views: 4500,
-        date: '2023-10-15',
-    },
-    {
-        id: '2',
-        title: 'AutoCAD Standard Layer Protocol',
-        description: 'Complete layer management template and block library for professional architectural drawings.',
-        type: 'template',
-        category: 'Technical/Design',
-        discipline: 'Architecture',
-        author: 'Elite Designs',
-        fileSize: '2.1 MB',
-        fileType: 'DWG / ZIP',
-        downloads: 850,
-        views: 2100,
-        date: '2024-01-20',
-    },
-    {
-        id: '3',
-        title: 'ATS-Friendly Engineer Resume Template',
-        description: 'High-conversion CV template specifically optimized for technical recruitment systems.',
-        type: 'template',
-        category: 'Career Growth',
-        discipline: 'General',
-        author: 'HR Experts',
-        fileSize: '450 KB',
-        fileType: 'DOCX',
-        downloads: 3200,
-        views: 8900,
-        date: '2024-02-10',
-        isPremium: true,
-    },
-    {
-        id: '4',
-        title: 'Structural Load Calculation (Excel)',
-        description: 'Automated calculation sheet for dead, live, and wind loads following BNBC guidelines.',
-        type: 'excel_calc',
-        category: 'Practical Tools',
-        discipline: 'Civil',
-        author: 'Engr. Rakib',
-        fileSize: '1.2 MB',
-        fileType: 'XLSX',
-        downloads: 1540,
-        views: 3200,
-        date: '2023-12-05',
-    },
-    {
-        id: '5',
-        title: 'Kubernetes Cheat Sheet for Devs',
-        description: 'A comprehensive guide to common K8s commands, configurations, and troubleshooting steps.',
-        type: 'document',
-        category: 'Technical/Design',
-        discipline: 'CSE',
-        author: 'Open Source Community',
-        fileSize: '890 KB',
-        fileType: 'PDF',
-        downloads: 5600,
-        views: 12400,
-        date: '2024-03-01',
-    },
-    {
-        id: 'g1',
-        title: 'Finite Element Analysis Solver (Python)',
-        description: 'Open-source FEA solver for 2D/3D truss and frame structures. Includes full source code and documentation.',
-        type: 'github',
-        category: 'Digital & Coding',
-        discipline: 'Mechanical',
-        author: 'MechMasters Org',
-        url: 'https://github.com/example/fea-python',
-        downloads: 2400,
-        views: 6700,
-        date: '2024-01-05',
-    },
-    {
-        id: 'y1',
-        title: 'ETABS 21 Masterclass: High-Rise Modeling',
-        description: 'Advanced tutorial on seismic analysis and modeling of 40-story building using ETABS 21.',
-        type: 'youtube',
-        category: 'Visual/Learning',
-        discipline: 'Civil',
-        author: 'Engr. Academy',
-        url: 'https://youtube.com/watch?v=example',
-        downloads: 8900,
-        views: 45000,
-        date: '2024-02-15',
-    },
-    {
-        id: 't1',
-        title: 'Interactive Psychrometric Chart',
-        description: 'Web-based interactive tool for calculating moist air properties. Essential for HVAC design.',
-        type: 'tool',
-        category: 'Practical Tools',
-        discipline: 'Mechanical',
-        author: 'HVAC Labs',
-        url: 'https://example-tool.com',
-        downloads: 3200,
-        views: 12000,
-        date: '2024-03-01',
-    }
-];
-
 const ResourceIcon = ({ type }: { type: string }) => {
+    const iconClass = "h-8 w-8";
     switch (type) {
-        case 'github': return <Github className="h-12 w-12 text-slate-800 dark:text-slate-200" />;
-        case 'youtube': return <Youtube className="h-12 w-12 text-red-600" />;
-        case 'podcast': return <Mic className="h-12 w-12 text-pink-600" />;
-        case 'ieee':
-        case 'research_paper': return <GraduationCap className="h-12 w-12 text-indigo-600" />;
-        case 'tool': return <Code className="h-12 w-12 text-emerald-600" />;
-        case 'template':
-        case 'excel_calc': return <Layout className="h-12 w-12 text-amber-500/80" />;
-        case 'cad_blueprint': return <PencilRuler className="h-12 w-12 text-blue-600" />;
-        case 'standard_codes':
-        case 'safety_manual': return <ShieldCheck className="h-12 w-12 text-emerald-500/80" />;
-        case 'resume':
-        case 'interview_prep':
-        case 'certification_prep': return <Briefcase className="h-12 w-12 text-blue-500/80" />;
-        case 'case_study': return <BookOpen className="h-12 w-12 text-orange-500" />;
-        case 'conference': return <Calendar className="h-12 w-12 text-rose-500" />;
-        default: return <FileText className="h-12 w-12 text-blue-500/80" />;
+        case 'research_paper': return <BookOpen className={cn(iconClass, "text-indigo-600")} />;
+        case 'ieee_xplore': return <GraduationCap className={cn(iconClass, "text-blue-600")} />;
+        case 'conference_material': return <Calendar className={cn(iconClass, "text-rose-600")} />;
+        case 'case_study': return <FileSearch className={cn(iconClass, "text-orange-600")} />;
+        case 'technical_document': return <FileText className={cn(iconClass, "text-blue-500")} />;
+        case 'standard_codes': return <ShieldCheck className={cn(iconClass, "text-emerald-700")} />;
+        case 'safety_manual': return <HardHat className={cn(iconClass, "text-amber-700")} />;
+        case 'github_repo': return <Github className={cn(iconClass, "text-slate-900 dark:text-slate-100")} />;
+        case 'interactive_tool': return <Code className={cn(iconClass, "text-emerald-600")} />;
+        case 'calculation_sheet': return <Layout className={cn(iconClass, "text-sky-600")} />;
+        case 'design_template': return <PencilRuler className={cn(iconClass, "text-pink-600")} />;
+        case 'cad_blueprint': return <Compass className={cn(iconClass, "text-cyan-700")} />;
+        case 'resume_template': return <UserCheck className={cn(iconClass, "text-violet-600")} />;
+        case 'interview_prep': return <Award className={cn(iconClass, "text-yellow-700")} />;
+        case 'certification_prep': return <ShieldCheck className={cn(iconClass, "text-indigo-700")} />;
+        case 'youtube_tutorial': return <Youtube className={cn(iconClass, "text-red-600")} />;
+        case 'engineering_podcast': return <Mic className={cn(iconClass, "text-purple-600")} />;
+        default: return <Layers className={cn(iconClass, "text-slate-500")} />;
     }
 };
 
 const CATEGORIES: { name: ResourceCategory; icon: any; description: string }[] = [
-    { name: 'Academic/Research', icon: GraduationCap, description: 'Papers, IEEE, Conferences' },
-    { name: 'Digital & Coding', icon: Code, description: 'GitHub, Interactive Tools' },
-    { name: 'Visual/Learning', icon: Youtube, description: 'Videos, Podcasts' },
-    { name: 'Technical/Design', icon: Layout, description: 'Technical Docs, CAD, Templates' },
-    { name: 'Industry Standard', icon: ShieldCheck, description: 'BNBC, ISO, Safety Codes' },
-    { name: 'Career Growth', icon: Briefcase, description: 'Resume, Interview, Certifications' },
-    { name: 'Practical Tools', icon: Wrench, description: 'Excel sheets, Case Studies' },
+    { name: 'Knowledge & Research', icon: BookOpen, description: 'Papers & Standards' },
+    { name: 'Code & Tools', icon: Code, description: 'Repos & Utilities' },
+    { name: 'Career & Learning', icon: GraduationCap, description: 'CVs & Tutorials' },
 ];
 
 const DISCIPLINES: { name: ResourceDiscipline; icon: any }[] = [
@@ -239,318 +143,431 @@ const DISCIPLINES: { name: ResourceDiscipline; icon: any }[] = [
 ];
 
 export default function ResourcesPage() {
-    const [resources, setResources] = useState<any[]>([]);
+    const [resources, setResources] = useState<EngineeringResource[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<ResourceCategory | 'All'>('All');
     const [selectedDiscipline, setSelectedDiscipline] = useState<ResourceDiscipline | 'All'>('All');
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-    const [selectedResource, setSelectedResource] = useState<any>(null);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const { toast } = useToast();
 
-    const handleResourceClick = (resource: any) => {
-        setSelectedResource(resource);
-        setIsDetailModalOpen(true);
+    // Sidebar Specific State
+    const [expandedSections, setExpandedSections] = useState<string[]>(['departments', 'level', 'topics']);
+    const [sidebarSearch, setSidebarSearch] = useState({ departments: '', topics: '' });
+
+    const toggleSection = (section: string) => {
+        setExpandedSections(prev =>
+            prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
+        );
+    };
+
+    const clearAllFilters = () => {
+        setSearchQuery('');
+        setSelectedCategory('All');
+        setSelectedDiscipline('All');
+    };
+
+    const loadResources = async () => {
+        setLoading(true);
+        try {
+            const data = await fetchResources({
+                category: selectedCategory,
+                discipline: selectedDiscipline,
+                query: searchQuery
+            });
+
+            const mapped = data?.map((r: any) => ({
+                id: r.id,
+                title: r.title,
+                description: r.description,
+                resource_type: r.resource_type,
+                category: r.category,
+                discipline: r.discipline,
+                author_id: r.author_id,
+                author_name: r.profiles?.full_name || 'Anonymous',
+                author_avatar: r.profiles?.avatar_url,
+                author_org: r.author_org,
+                external_url: r.external_url,
+                embed_url: r.embed_url,
+                upvote_count: r.upvote_count || 0,
+                bookmark_count: r.bookmark_count || 0,
+                view_count: r.view_count || 0,
+                created_at: r.created_at,
+                year: r.year,
+                license: r.license,
+                skill_level: r.skill_level || 'Beginner',
+                is_premium: r.is_premium,
+                tags: r.tags || [],
+                slug: r.slug || r.id
+            })) || [];
+
+            setResources(mapped);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
-        const loadResources = async () => {
-            setLoading(true);
-            try {
-                const data = await fetchResources({
-                    category: selectedCategory,
-                    discipline: selectedDiscipline,
-                    query: searchQuery
-                });
-
-                // Merge static samples with live data for a full view, or just use live data
-                // For now, let's use live data but map it to EngineeringResource format
-                const liveResources = data?.map((r: any) => ({
-                    id: r.id,
-                    title: r.title,
-                    description: r.description,
-                    type: r.resource_type,
-                    category: r.category,
-                    discipline: r.discipline,
-                    author: r.profiles?.full_name || 'Anonymous',
-                    url: r.github_url || r.youtube_url || r.ieee_url || r.external_url || r.embed_url,
-                    youtube_url: r.youtube_url,
-                    github_url: r.github_url,
-                    ieee_url: r.ieee_url,
-                    external_url: r.external_url,
-                    embed_url: r.embed_url,
-                    downloads: r.download_count || 0,
-                    views: r.view_count || 0,
-                    date: new Date(r.created_at).toLocaleDateString(),
-                    isPremium: r.is_premium,
-                    tags: r.tags || []
-                })) || [];
-
-                // Optionally mix with samples if there's no data yet to keep it looking good
-                setResources(liveResources.length > 0 ? liveResources : []);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         const timer = setTimeout(() => {
             loadResources();
-        }, 500); // Debounce search
-
+        }, 500);
         return () => clearTimeout(timer);
     }, [searchQuery, selectedCategory, selectedDiscipline]);
 
-    const filteredResources = resources;
+    const handleInteraction = async (e: React.MouseEvent, id: string, type: 'upvote' | 'bookmark') => {
+        e.stopPropagation();
+        try {
+            const result = await toggleInteraction(id, type);
+            loadResources();
+            toast({
+                title: result.active ? `${type.charAt(0).toUpperCase() + type.slice(1)} added` : `${type.charAt(0).toUpperCase() + type.slice(1)} removed`,
+                description: result.active ? "Thank you for the community validation!" : "Resource interaction updated.",
+            });
+        } catch (error: any) {
+            toast({
+                title: "Authentication Required",
+                description: "You must be logged in to interact with resources.",
+                variant: "destructive"
+            });
+        }
+    };
+
 
     return (
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
-            <ResourceUploadModal isOpen={isUploadModalOpen} onOpenChange={setIsUploadModalOpen} />
-            <ResourceDetailModal
-                isOpen={isDetailModalOpen}
-                onOpenChange={setIsDetailModalOpen}
-                resource={selectedResource}
+        <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617]">
+            <ResourceUploadModal
+                isOpen={isUploadModalOpen}
+                onOpenChange={setIsUploadModalOpen}
+                onSuccess={() => window.location.reload()}
             />
 
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
-                <div className="space-y-2">
-                    <h1 className="text-4xl font-extrabold tracking-tight">Engineer's Toolbox</h1>
-                    <p className="text-muted-foreground text-lg max-w-2xl">
-                        A specialized digital library for professional engineers. Find codes, templates, and manuals in seconds.
-                    </p>
+            {/* Header Hero */}
+            <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+                <div className="container mx-auto px-4 py-16 max-w-7xl">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+                        <div className="space-y-4">
+                            <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                                Open Engineering <span className="text-blue-600">Resources</span>
+                            </h1>
+                            <p className="text-slate-600 dark:text-slate-400 text-lg max-w-2xl font-medium">
+                                Contribute, discover, and preserve specialized engineering knowledge for the global community.
+                            </p>
+                        </div>
+                        <Button
+                            onClick={() => setIsUploadModalOpen(true)}
+                            size="lg"
+                            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 rounded-xl px-8 h-14 text-base font-bold transition-all"
+                        >
+                            <Plus className="mr-2 h-5 w-5" /> Contribute Resource
+                        </Button>
+                    </div>
                 </div>
-                <Button onClick={() => setIsUploadModalOpen(true)} size="lg" className="gap-2 shadow-lg shadow-primary/20 rounded-xl px-8 h-12">
-                    <Plus className="h-5 w-5" /> Contribution
-                </Button>
             </div>
 
-            <div className="grid lg:grid-cols-4 gap-8">
-                {/* Sidebar Filters */}
-                <aside className="space-y-8 h-fit lg:sticky lg:top-24">
-                    <div className="space-y-4">
-                        <h3 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-[0.2em] px-2">Disciplines</h3>
-                        <div className="flex flex-col gap-1">
+            {/* DMCA Disclaimer Banner */}
+            <div className="bg-amber-50 dark:bg-amber-900/10 border-b border-amber-200 dark:border-amber-900/30 py-3">
+                <div className="container mx-auto px-4 max-w-7xl flex items-center justify-center gap-3">
+                    <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-500 shrink-0" />
+                    <p className="text-[11px] md:text-xs font-bold text-amber-800 dark:text-amber-400 text-center">
+                        <span className="uppercase mr-2 font-black tracking-widest text-[9px] bg-amber-200 dark:bg-amber-800 px-2 py-0.5 rounded">Disclaimer:</span>
+                        All resources are linked to their original sources. Engineer for Society does not claim ownership.
+                    </p>
+                </div>
+            </div>
+
+            <div className="container mx-auto px-4 py-12 max-w-7xl">
+                <div className="grid lg:grid-cols-4 gap-8">
+                    {/* Sidebar */}
+                    <aside className="space-y-6 lg:sticky lg:top-8 h-fit">
+                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <Filter className="h-5 w-5" /> Filters
+                            </h2>
                             <button
-                                onClick={() => setSelectedDiscipline('All')}
-                                className={cn(
-                                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all",
-                                    selectedDiscipline === 'All' ? "bg-primary/10 text-primary font-bold shadow-sm" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                                )}
+                                onClick={clearAllFilters}
+                                className="text-xs font-bold text-blue-600 hover:text-blue-700 underline flex items-center gap-1"
                             >
-                                All Disciplines
+                                Clear All
                             </button>
-                            {DISCIPLINES.map(d => (
-                                <button
-                                    key={d.name}
-                                    onClick={() => setSelectedDiscipline(d.name)}
-                                    className={cn(
-                                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all",
-                                        selectedDiscipline === d.name ? "bg-primary/10 text-primary font-bold shadow-sm" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                                    )}
-                                >
-                                    <d.icon className="h-4 w-4" />
-                                    {d.name}
-                                </button>
-                            ))}
                         </div>
-                    </div>
 
-                    <Separator className="bg-border/50" />
-
-                    <div className="space-y-4">
-                        <h3 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-[0.2em] px-2">Categories</h3>
-                        <div className="flex flex-col gap-1">
-                            <button
-                                onClick={() => setSelectedCategory('All')}
-                                className={cn(
-                                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all",
-                                    selectedCategory === 'All' ? "bg-primary/10 text-primary font-bold shadow-sm" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                                )}
-                            >
-                                All Categories
-                            </button>
-                            {CATEGORIES.map(c => (
-                                <button
-                                    key={c.name}
-                                    onClick={() => setSelectedCategory(c.name)}
-                                    className={cn(
-                                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-left transition-all",
-                                        selectedCategory === c.name ? "bg-primary/10 text-primary font-bold shadow-sm" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                                    )}
-                                >
-                                    <c.icon className="h-4 w-4 shrink-0" />
-                                    <span className="line-clamp-1">{c.name}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Stats bit */}
-                    <div className="bg-accent/30 rounded-2xl p-6 border border-border/50">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="bg-primary/10 p-2 rounded-lg text-primary">
-                                <ShieldCheck className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold">Verified Library</p>
-                                <p className="text-[10px] text-muted-foreground">Certified Engineering Resources</p>
-                            </div>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="text-muted-foreground font-medium">Total Resources</span>
-                                <span className="font-bold">2,450+</span>
-                            </div>
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="text-muted-foreground font-medium">Monthly Downloads</span>
-                                <span className="font-bold">150k+</span>
-                            </div>
-                        </div>
-                    </div>
-                </aside>
-
-                {/* Main Content Area */}
-                <main className="lg:col-span-3 space-y-6">
-                    {/* Search & Sort Bar */}
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/50" />
+                        {/* Search Component */}
+                        <div className="relative group">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                             <Input
-                                placeholder="Search manual, manual, manual, codes, templates..."
-                                className="pl-11 h-12 bg-background/50 border-muted focus-visible:ring-primary/20 text-lg rounded-xl shadow-sm"
+                                placeholder="Search repository..."
+                                className="pl-10 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 h-12 rounded-xl text-sm font-medium focus-visible:ring-blue-500"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
-                        <div className="flex gap-2">
+
+                        {/* Departments (Disciplines) */}
+                        <Collapsible
+                            open={expandedSections.includes('departments')}
+                            onOpenChange={() => toggleSection('departments')}
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm"
+                        >
+                            <CollapsibleTrigger className="w-full flex items-center justify-between p-4 px-5 text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-800/50">
+                                Departments
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", expandedSections.includes('departments') ? "rotate-180" : "")} />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <div className="p-4 space-y-4">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                        <Input
+                                            placeholder="Search Departments"
+                                            className="h-9 pl-9 text-xs rounded-lg bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                                            value={sidebarSearch.departments}
+                                            onChange={(e) => setSidebarSearch({ ...sidebarSearch, departments: e.target.value })}
+                                        />
+                                    </div>
+                                    <ScrollArea className="h-[250px] pr-2 -mr-1">
+                                        <div className="space-y-1">
+                                            <div
+                                                onClick={() => setSelectedDiscipline('All')}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-bold transition-all cursor-pointer",
+                                                    selectedDiscipline === 'All' ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <Checkbox checked={selectedDiscipline === 'All'} onCheckedChange={() => setSelectedDiscipline('All')} className="rounded-md h-4 w-4" />
+                                                    All Departments
+                                                </div>
+                                            </div>
+                                            {DISCIPLINES.filter(d => d.name.toLowerCase().includes(sidebarSearch.departments.toLowerCase())).map(d => (
+                                                <div
+                                                    key={d.name}
+                                                    onClick={() => setSelectedDiscipline(d.name)}
+                                                    className={cn(
+                                                        "w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-bold transition-all cursor-pointer",
+                                                        selectedDiscipline === d.name ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center gap-3 text-left">
+                                                        <Checkbox checked={selectedDiscipline === d.name} onCheckedChange={() => setSelectedDiscipline(d.name)} className="rounded-md h-4 w-4" />
+                                                        {d.name}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </ScrollArea>
+                                </div>
+                            </CollapsibleContent>
+                        </Collapsible>
+
+                        {/* Level (Skill Level) - Since we only have one Skill Level Filter, we'll keep it simple */}
+                        <Collapsible
+                            open={expandedSections.includes('level')}
+                            onOpenChange={() => toggleSection('level')}
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm"
+                        >
+                            <CollapsibleTrigger className="w-full flex items-center justify-between p-4 px-5 text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-800/50">
+                                Level
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", expandedSections.includes('level') ? "rotate-180" : "")} />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <div className="p-4 space-y-1 text-sm font-bold">
+                                    {['Beginner', 'Intermediate', 'Advanced'].map(level => (
+                                        <div key={level} className="flex items-center justify-between p-2.5 text-slate-600 dark:text-slate-400">
+                                            <div className="flex items-center gap-3">
+                                                <Checkbox className="rounded-md h-4 w-4" />
+                                                {level}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CollapsibleContent>
+                        </Collapsible>
+
+                        {/* Topics (Categories) */}
+                        <Collapsible
+                            open={expandedSections.includes('topics')}
+                            onOpenChange={() => toggleSection('topics')}
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm"
+                        >
+                            <CollapsibleTrigger className="w-full flex items-center justify-between p-4 px-5 text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-800/50">
+                                Topics
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", expandedSections.includes('topics') ? "rotate-180" : "")} />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <div className="p-4 space-y-4">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                        <Input
+                                            placeholder="Search Topics"
+                                            className="h-9 pl-9 text-xs rounded-lg bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                                            value={sidebarSearch.topics}
+                                            onChange={(e) => setSidebarSearch({ ...sidebarSearch, topics: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div
+                                            onClick={() => setSelectedCategory('All')}
+                                            className={cn(
+                                                "w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-bold transition-all cursor-pointer",
+                                                selectedCategory === 'All' ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50"
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-3 text-left">
+                                                <Checkbox checked={selectedCategory === 'All'} onCheckedChange={() => setSelectedCategory('All')} className="rounded-md h-4 w-4" />
+                                                All Categories
+                                            </div>
+                                        </div>
+                                        {CATEGORIES.filter(c => c.name.toLowerCase().includes(sidebarSearch.topics.toLowerCase())).map(c => (
+                                            <div
+                                                key={c.name}
+                                                onClick={() => setSelectedCategory(c.name)}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-bold transition-all cursor-pointer",
+                                                    selectedCategory === c.name ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3 text-left">
+                                                    <Checkbox checked={selectedCategory === c.name} onCheckedChange={() => setSelectedCategory(c.name)} className="rounded-md h-4 w-4" />
+                                                    {c.name}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </CollapsibleContent>
+                        </Collapsible>
+                    </aside>
+
+                    {/* Main Content */}
+                    <main className="lg:col-span-3 space-y-6">
+                        {/* Sort & Results Bar */}
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
+                                Showing <span className="text-slate-900 dark:text-white">{resources.length}</span> specialized resources
+                            </p>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="h-12 px-5 gap-2 rounded-xl group hover:border-primary/30">
-                                        <Filter className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                                        Sort By
+                                    <Button variant="outline" className="rounded-xl font-bold h-10 px-5 gap-2 border-slate-200 dark:border-slate-700">
+                                        <ListFilter className="h-4 w-4" /> Sort By
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
-                                    <DropdownMenuItem className="rounded-lg">Most Popular</DropdownMenuItem>
-                                    <DropdownMenuItem className="rounded-lg">Recently Added</DropdownMenuItem>
-                                    <DropdownMenuItem className="rounded-lg">Highest Rated</DropdownMenuItem>
-                                    <DropdownMenuItem className="rounded-lg">File Size</DropdownMenuItem>
+                                <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                                    <DropdownMenuItem className="font-medium cursor-pointer">Most Popular</DropdownMenuItem>
+                                    <DropdownMenuItem className="font-medium cursor-pointer">Recently Added</DropdownMenuItem>
+                                    <DropdownMenuItem className="font-medium cursor-pointer">Highest Rated</DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
-                    </div>
 
-                    {/* Resource Grid */}
-                    <div className="grid gap-5">
-                        {loading ? (
-                            <div className="flex flex-col items-center justify-center py-24 space-y-4">
-                                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                                <p className="text-muted-foreground font-medium">Accessing Engineering Vault...</p>
-                            </div>
-                        ) : filteredResources.length > 0 ? (
-                            filteredResources.map((resource) => (
-                                <Card key={resource.id} className="group overflow-hidden rounded-2xl border-muted/60 hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 bg-background/40 backdrop-blur-sm">
-                                    <div className="flex flex-col md:flex-row">
-                                        <div
-                                            className="w-full md:w-48 bg-muted/20 flex items-center justify-center p-6 border-b md:border-b-0 md:border-r border-border/50 group-hover:bg-primary/5 transition-colors cursor-pointer"
-                                            onClick={() => handleResourceClick(resource)}
-                                        >
-                                            <ResourceIcon type={resource.type} />
-                                        </div>
-                                        <CardContent className="flex-1 p-6">
-                                            <div className="flex justify-between items-start mb-2 gap-4">
-                                                <div className="flex flex-wrap gap-2">
-                                                    <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-none px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                                                        {resource.discipline}
-                                                    </Badge>
-                                                    <Badge variant="outline" className="text-[10px] px-3 py-0.5 rounded-full font-medium text-muted-foreground border-muted-foreground/30 capitalize">
-                                                        {resource.type.replace('_', ' ')}
-                                                    </Badge>
-                                                </div>
-                                                {resource.isPremium && (
-                                                    <div className="bg-yellow-400/20 text-yellow-600 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 border border-yellow-400/30">
-                                                        PREMIUM
+                        {/* grid list of resources */}
+                        <div className="grid gap-4">
+                            {loading ? (
+                                <div className="py-32 flex flex-col items-center justify-center space-y-4">
+                                    <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+                                    <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Syncing with Knowledge Vault...</p>
+                                </div>
+                            ) : resources.length > 0 ? (
+                                resources.map((resource) => (
+                                    <Link
+                                        key={resource.id}
+                                        href={`/resources/${resource.slug}`}
+                                        className="group block rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden hover:border-blue-500/50 hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300"
+                                    >
+                                        <CardContent className="p-0">
+                                            <div className="flex flex-col sm:flex-row">
+                                                {/* Left Icon Panel */}
+                                                <div className="sm:w-32 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center p-6 sm:p-0 border-b sm:border-b-0 sm:border-r border-slate-100 dark:border-slate-800">
+                                                    <div className="p-4 bg-white dark:bg-slate-700 rounded-2xl shadow-sm transform group-hover:scale-110 transition-transform">
+                                                        <ResourceIcon type={resource.resource_type} />
                                                     </div>
-                                                )}
-                                            </div>
-                                            <h3
-                                                className="text-xl font-bold mb-2 group-hover:text-primary transition-colors cursor-pointer"
-                                                onClick={() => handleResourceClick(resource)}
-                                            >
-                                                {resource.title}
-                                            </h3>
-                                            <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
-                                                {resource.description}
-                                            </p>
+                                                </div>
 
-                                            <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-[12px] text-muted-foreground font-medium">
-                                                <div className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-help">
-                                                    <ShieldCheck className="h-3.5 w-3.5 text-blue-400" />
-                                                    {resource.author}
-                                                </div>
-                                                <div className="flex items-center gap-1.5">
-                                                    <Clock className="h-3.5 w-3.5" />
-                                                    {resource.date}
-                                                </div>
-                                                {resource.fileType && (
-                                                    <div className="flex items-center gap-1.5 border-l border-border pl-6 ml-0">
-                                                        <span className="font-bold text-foreground uppercase">{resource.fileType}</span>
-                                                        <span>({resource.fileSize})</span>
+                                                {/* Center Content */}
+                                                <div className="flex-1 p-6 space-y-3">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 border-none rounded-lg px-3 py-1 text-[10px] font-black uppercase">
+                                                            {resource.discipline}
+                                                        </Badge>
+                                                        <Badge variant="outline" className="border-slate-200 dark:border-slate-700 text-slate-500 text-[10px] font-bold px-3 py-1 rounded-lg">
+                                                            {resource.resource_type.replace('_', ' ')}
+                                                        </Badge>
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{resource.skill_level}</span>
                                                     </div>
-                                                )}
-                                                {resource.type === 'github' && (
-                                                    <div className="flex items-center gap-1.5 border-l border-border pl-6 ml-0 text-slate-600">
-                                                        <Github className="h-3.5 w-3.5" />
-                                                        <span>GitHub Repository</span>
+
+                                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white leading-snug group-hover:text-blue-600 transition-colors">
+                                                        {resource.title}
+                                                    </h3>
+
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                                                        {resource.description}
+                                                    </p>
+
+                                                    <div className="pt-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+                                                        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                                                            <div className="h-5 w-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                                                <Building2 className="h-3 w-3" />
+                                                            </div>
+                                                            {resource.author_org || resource.author_name}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400">
+                                                            <Clock className="h-3.5 w-3.5" />
+                                                            {new Date(resource.created_at).toLocaleDateString()}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400">
+                                                            <Award className="h-3.5 w-3.5" />
+                                                            {resource.license || 'Standard'}
+                                                        </div>
                                                     </div>
-                                                )}
+                                                </div>
+
+                                                {/* Right Interaction Panel */}
+                                                <div className="sm:w-24 bg-slate-50/50 dark:bg-slate-800/30 p-4 sm:p-6 flex sm:flex-col justify-around sm:justify-center items-center gap-6 border-t sm:border-t-0 sm:border-l border-slate-100 dark:border-slate-800">
+                                                    <button
+                                                        onClick={(e) => handleInteraction(e, resource.id, 'upvote')}
+                                                        className="flex flex-col items-center gap-1 group/vote"
+                                                    >
+                                                        <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center group-hover/vote:bg-blue-600 group-hover/vote:text-white transition-all shadow-sm">
+                                                            <ThumbsUp className="h-4 w-4" />
+                                                        </div>
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{resource.upvote_count}</span>
+                                                    </button>
+
+                                                    <button
+                                                        onClick={(e) => handleInteraction(e, resource.id, 'bookmark')}
+                                                        className="flex flex-col items-center gap-1 group/save"
+                                                    >
+                                                        <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center group-hover/save:bg-amber-500 group-hover/save:text-white transition-all shadow-sm">
+                                                            <Bookmark className="h-4 w-4" />
+                                                        </div>
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{resource.bookmark_count}</span>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </CardContent>
-                                        <div className="p-6 md:p-8 flex flex-row md:flex-col justify-between items-center gap-4 bg-muted/5 border-t md:border-t-0 md:border-l border-border/30">
-                                            <div className="flex md:flex-col items-center gap-4 md:gap-1 text-center">
-                                                <p className="text-lg font-black leading-none">{resource.downloads > 1000 ? (resource.downloads / 1000).toFixed(1) + 'k' : resource.downloads}</p>
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                                    {['youtube', 'github', 'tool'].includes(resource.type) ? 'Views' : 'Downloads'}
-                                                </p>
-                                            </div>
-                                            <Button
-                                                asChild
-                                                className="rounded-xl h-11 w-11 md:w-auto md:px-6 shadow-sm group/btn bg-primary hover:bg-primary/90 transition-all cursor-pointer"
-                                            >
-                                                <a href={resource.url || '#'} target="_blank" rel="noopener noreferrer">
-                                                    {['github', 'youtube', 'tool', 'ieee', 'research_paper', 'podcast', 'conference'].includes(resource.type) || resource.url?.startsWith('http') ? (
-                                                        <ExternalLink className="h-5 w-5 md:mr-2 group-hover/btn:scale-110 transition-transform" />
-                                                    ) : (
-                                                        <Download className="h-5 w-5 md:mr-2 group-hover/btn:translate-y-0.5 transition-transform" />
-                                                    )}
-                                                    <span className="hidden md:inline">
-                                                        {resource.type === 'github' ? 'View Repo' :
-                                                            resource.type === 'youtube' ? 'Watch' :
-                                                                resource.type === 'tool' ? 'Open Tool' :
-                                                                    resource.url?.startsWith('http') ? 'Visit Link' : 'Access'}
-                                                    </span>
-                                                </a>
-                                            </Button>
-                                        </div>
+                                    </Link>
+                                ))
+                            ) : (
+                                <div className="py-24 text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 space-y-6">
+                                    <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-full w-fit mx-auto">
+                                        <FileSearch className="h-10 w-10 text-slate-400" />
                                     </div>
-                                </Card>
-                            ))
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-24 text-center space-y-4 bg-muted/20 rounded-3xl border-2 border-dashed border-muted">
-                                <div className="bg-muted p-6 rounded-full">
-                                    <Search className="h-10 w-10 text-muted-foreground/30" />
+                                    <div className="space-y-2">
+                                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">No assets found</h3>
+                                        <p className="text-slate-500 max-w-sm mx-auto">We couldn't find any resources matching your search. Try adjusting the filters or search keywords.</p>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => { setSearchQuery(''); setSelectedCategory('All'); setSelectedDiscipline('All'); }}
+                                        className="rounded-xl font-bold border-slate-200 dark:border-slate-700"
+                                    >
+                                        Clear All Filters
+                                    </Button>
                                 </div>
-                                <div>
-                                    <h3 className="text-xl font-bold">No resources found</h3>
-                                    <p className="text-muted-foreground">Try adjusting your filters or search keywords.</p>
-                                </div>
-                                <Button variant="outline" onClick={() => { setSearchQuery(''); setSelectedCategory('All'); setSelectedDiscipline('All'); }}>Clear All Filters</Button>
-                            </div>
-                        )}
-                    </div>
-                </main>
+                            )}
+                        </div>
+                    </main>
+                </div>
             </div>
         </div>
     );

@@ -4,6 +4,8 @@ import { summarizeDocument, SummarizeDocumentInput } from "@/ai/flows/summarize-
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
+import { cache } from 'react';
+
 const ResourceSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().optional(),
@@ -56,15 +58,35 @@ export async function getSummary(
   }
 }
 
-export async function fetchResources(filters?: { category?: string; discipline?: string; query?: string }) {
+// Cached version of fetchResources with React cache for deduplication
+export const fetchResources = cache(async (filters?: { category?: string; discipline?: string; query?: string }) => {
   const supabase = await createClient();
 
   let query = supabase
     .from('resources')
     .select(`
-            *,
-            profiles:author_id (full_name, avatar_url)
-        `)
+      id,
+      title,
+      description,
+      resource_type,
+      category,
+      discipline,
+      author_id,
+      author_org,
+      external_url,
+      embed_url,
+      upvote_count,
+      bookmark_count,
+      view_count,
+      created_at,
+      year,
+      license,
+      skill_level,
+      is_premium,
+      tags,
+      slug,
+      profiles:author_id (full_name, avatar_url)
+    `)
     .eq('status', 'approved')
     .order('created_at', { ascending: false });
 
@@ -87,17 +109,37 @@ export async function fetchResources(filters?: { category?: string; discipline?:
   }
 
   return data;
-}
+});
 
-export async function fetchResourceBySlug(slug: string) {
+
+export const fetchResourceBySlug = cache(async (slug: string) => {
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('resources')
     .select(`
-            *,
-            profiles:author_id (full_name, avatar_url)
-        `)
+      id,
+      title,
+      description,
+      resource_type,
+      category,
+      discipline,
+      author_id,
+      author_org,
+      external_url,
+      embed_url,
+      upvote_count,
+      bookmark_count,
+      view_count,
+      created_at,
+      year,
+      license,
+      skill_level,
+      is_premium,
+      tags,
+      slug,
+      profiles:author_id (full_name, avatar_url)
+    `)
     .eq('slug', slug)
     .single();
 
@@ -107,7 +149,7 @@ export async function fetchResourceBySlug(slug: string) {
   }
 
   return data;
-}
+});
 
 export async function createResource(data: any) {
   const supabase = await createClient();

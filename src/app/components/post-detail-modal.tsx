@@ -130,13 +130,27 @@ export function PostDetailModal({ isOpen, onOpenChange, post: initialPost, curre
         }
     }, [initialPost, isOpen, onOpenChange]);
 
-    // Cleanup URL on close
+    // Cleanup URL on close and restore body scroll
     useEffect(() => {
         if (!isOpen && post) {
             // Only replace state if we are still on the post URL to avoid accidental redirects
             if (window.location.pathname.includes('/post/')) {
                 window.history.replaceState(null, '', '/');
             }
+
+            // Comprehensive body scroll restoration
+            document.body.style.overflow = '';
+            document.body.style.pointerEvents = '';
+            document.body.style.paddingRight = '';
+
+            // Remove any scroll-lock related classes
+            document.body.classList.remove('overflow-hidden');
+
+            // Remove any data attributes that might be used for scroll locking
+            document.body.removeAttribute('data-scroll-locked');
+
+            // Also check document element
+            document.documentElement.style.overflow = '';
         }
     }, [isOpen, post]);
 

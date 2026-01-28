@@ -8,6 +8,17 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
+  experimental: {
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
+  },
   images: {
     remotePatterns: [
       {
@@ -42,9 +53,9 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '*.supabase.co',
+        hostname: '*.supabase.co', // Catch all supabase subdomains
         port: '',
-        pathname: '/storage/v1/object/public/**',
+        pathname: '/**',
       },
       {
         protocol: 'https',

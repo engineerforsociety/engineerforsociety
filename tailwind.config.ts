@@ -1,4 +1,4 @@
-import type {Config} from 'tailwindcss';
+import type { Config } from 'tailwindcss';
 
 export default {
   darkMode: ['class'],
@@ -10,9 +10,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['"Source Sans 3"', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
-        code: ['"JetBrains Mono"', 'monospace'],
+        body: ['var(--font-source-sans)', 'sans-serif'],
+        headline: ['var(--font-inter)', 'sans-serif'],
+        code: ['var(--font-jetbrains-mono)', 'monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',

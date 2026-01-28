@@ -40,6 +40,7 @@ import {
     Trash2,
     AlertTriangle
 } from 'lucide-react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -396,9 +397,11 @@ export default function ResourceDetailPage() {
                                                     className="absolute inset-0 bg-cover bg-center bg-no-repeat blur-2xl opacity-40 scale-110"
                                                     style={{ backgroundImage: `url(${linkMetadata.image})` }}
                                                 />
-                                                <img
+                                                <Image
                                                     src={linkMetadata.image}
                                                     alt={linkMetadata.title}
+                                                    fill
+                                                    unoptimized
                                                     className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-1000"
                                                 />
                                             </>

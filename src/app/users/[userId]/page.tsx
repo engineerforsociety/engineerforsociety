@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 import { notFound } from 'next/navigation';
+import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -92,7 +93,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
                     <Card className="overflow-hidden">
                         <div className="relative h-32 md:h-48 bg-gradient-to-r from-primary/20 to-secondary/20">
                             {profile.cover_url && (
-                                <img src={profile.cover_url} alt="Cover" className="w-full h-full object-cover" />
+                                <Image src={profile.cover_url} alt="Cover" fill className="w-full h-full object-cover" />
                             )}
                         </div>
                         <div className="px-6 pb-6 relative">

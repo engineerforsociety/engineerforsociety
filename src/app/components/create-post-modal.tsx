@@ -62,6 +62,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 
 type Category = {
@@ -456,7 +457,7 @@ export function CreatePostModal({ isOpen, onOpenChange, initialType, onSuccess, 
                             <div className="flex flex-wrap gap-3">
                               {imagePreviews.map((url, idx) => (
                                 <div key={url} className="relative h-28 w-28 rounded-2xl overflow-hidden group border-2 border-white shadow-lg transition-transform active:scale-95">
-                                  <img src={url} className="h-full w-full object-cover" alt="Preview" />
+                                  <Image src={url} fill className="object-cover" alt="Preview" unoptimized />
                                   <button onClick={() => removeImage(idx)} className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-6 w-6 text-white" /></button>
                                 </div>
                               ))}

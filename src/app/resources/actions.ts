@@ -3,8 +3,10 @@
 import { summarizeDocument, SummarizeDocumentInput } from "@/ai/flows/summarize-document";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from 'next/cache';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
-import { cache } from 'react';
+
 
 const ResourceSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -58,98 +60,132 @@ export async function getSummary(
   }
 }
 
-// Cached version of fetchResources with React cache for deduplication
-export const fetchResources = cache(async (filters?: { category?: string; discipline?: string; query?: string }) => {
-  const supabase = await createClient();
+// Use a direct client for service-role-like access if needed, or just anon key for public data
+const supabaseAdmin = createSupabaseClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-  let query = supabase
-    .from('resources')
-    .select(`
-      id,
-      title,
-      description,
-      resource_type,
-      category,
-      discipline,
-      author_id,
-      author_org,
-      external_url,
-      embed_url,
-      upvote_count,
-      bookmark_count,
-      view_count,
-      created_at,
-      year,
-      license,
-      skill_level,
-      is_premium,
-      tags,
-      slug,
-      profiles:author_id (full_name, avatar_url)
-    `)
-    .eq('status', 'approved')
-    .order('created_at', { ascending: false });
+// High-performance cached function for ALL approved resources
+// Defined at module level to ensure correct memoization
+export const getCachedAllResources = unstable_cache(
+  async () => {
+    console.time('fetch-resources-db');
+    const { data, error } = await supabaseAdmin
+      .from('resources')
+      .select(`
+        id,
+        title,
+        description,
+        resource_type,
+        category,
+        discipline,
+        author_id,
+        author_org,
+        external_url,
+        embed_url,
+        upvote_count,
+        bookmark_count,
+        view_count,
+        created_at,
+        year,
+        license,
+        skill_level,
+        is_premium,
+        tags,
+        slug,
+        profiles:author_id (full_name, avatar_url)
+      `)
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false });
+    console.timeEnd('fetch-resources-db');
 
-  if (filters?.category && filters.category !== 'All') {
-    query = query.eq('category', filters.category);
+    if (error) {
+      console.error('Supabase error fetching resources:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+  ['resources-master-list'],
+  {
+    revalidate: 60, // ISR: 1 minute revalidation
+    tags: ['resources']
   }
+);
 
-  if (filters?.discipline && filters.discipline !== 'All') {
-    query = query.eq('discipline', filters.discipline);
+/**
+ * Optimized fetchResources that leverages a single master cache.
+ * Even with filters, it will hit the master cache and filter in memory,
+ * which is orders of magnitude faster than a DB query + cache miss.
+ */
+export async function fetchResources(filters?: { category?: string; discipline?: string; query?: string }) {
+  const allResources = await getCachedAllResources();
+
+  if (!filters) return allResources;
+
+  const { category, discipline, query } = filters;
+
+  // High-speed in-memory filtering
+  return allResources.filter((r: any) => {
+    const matchesCategory = !category || category === 'All' || r.category === category;
+    const matchesDiscipline = !discipline || discipline === 'All' || r.discipline === discipline;
+    const matchesQuery = !query || r.title.toLowerCase().includes(query.toLowerCase());
+    return matchesCategory && matchesDiscipline && matchesQuery;
+  });
+}
+
+
+
+// High-performance cached function for a SINGLE resource by slug
+export const getCachedResourceBySlug = unstable_cache(
+  async (slug: string) => {
+    const { data, error } = await supabaseAdmin
+      .from('resources')
+      .select(`
+        id,
+        title,
+        description,
+        resource_type,
+        category,
+        discipline,
+        author_id,
+        author_org,
+        external_url,
+        embed_url,
+        upvote_count,
+        bookmark_count,
+        view_count,
+        created_at,
+        year,
+        license,
+        skill_level,
+        is_premium,
+        tags,
+        slug,
+        profiles:author_id (full_name, avatar_url)
+      `)
+      .eq('slug', slug)
+      .single();
+
+    if (error) {
+      console.error('Error fetching resource by slug:', error);
+      return null;
+    }
+
+    return data;
+  },
+  ['resource-single-detail'],
+  {
+    revalidate: 60,
+    tags: ['resources']
   }
+);
 
-  if (filters?.query) {
-    query = query.ilike('title', `%${filters.query}%`);
-  }
+export async function fetchResourceBySlug(slug: string) {
+  return getCachedResourceBySlug(slug);
+}
 
-  const { data, error } = await query;
-  if (error) {
-    console.error('Error fetching resources:', error);
-    return [];
-  }
-
-  return data;
-});
-
-
-export const fetchResourceBySlug = cache(async (slug: string) => {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('resources')
-    .select(`
-      id,
-      title,
-      description,
-      resource_type,
-      category,
-      discipline,
-      author_id,
-      author_org,
-      external_url,
-      embed_url,
-      upvote_count,
-      bookmark_count,
-      view_count,
-      created_at,
-      year,
-      license,
-      skill_level,
-      is_premium,
-      tags,
-      slug,
-      profiles:author_id (full_name, avatar_url)
-    `)
-    .eq('slug', slug)
-    .single();
-
-  if (error) {
-    console.error('Error fetching resource by slug:', error);
-    return null;
-  }
-
-  return data;
-});
 
 export async function createResource(data: any) {
   const supabase = await createClient();

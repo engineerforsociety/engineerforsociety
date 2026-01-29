@@ -39,7 +39,7 @@ export function UserNav({ user, profile }: { user: SupabaseUser | null, profile:
                 'flex flex-col items-center justify-center gap-1 rounded-l-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer h-full'
             )}>
                 <Avatar className="h-6 w-6">
-                    <AvatarImage src={avatarUrl} alt={displayName} />
+                    <AvatarImage src={avatarUrl} alt={displayName} referrerPolicy="no-referrer" />
                     <AvatarFallback>{displayName.substring(0, 2)}</AvatarFallback>
                 </Avatar>
                 <span className="flex items-center">
@@ -56,7 +56,7 @@ export function UserNav({ user, profile }: { user: SupabaseUser | null, profile:
                     <DropdownMenuLabel className="font-normal">
                         <div className="flex items-center gap-3">
                             <Avatar className="h-12 w-12">
-                                <AvatarImage src={avatarUrl} alt={displayName} />
+                                <AvatarImage src={avatarUrl} alt={displayName} referrerPolicy="no-referrer" />
                                 <AvatarFallback>{displayName.substring(0, 2)}</AvatarFallback>
                             </Avatar>
                             <div className="flex flex-col space-y-1">

@@ -36,7 +36,7 @@ interface EngineeringResource {
 export const revalidate = 60;
 
 // Enable dynamic rendering for search params
-export const dynamic = 'force-dynamic';
+// export const dynamic = 'force-dynamic';
 
 interface PageProps {
     searchParams: Promise<{

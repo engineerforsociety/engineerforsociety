@@ -46,7 +46,7 @@ function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
                 {coverUrl ? <Image src={coverUrl} alt="Cover" fill className="object-cover" /> : <div className="w-full h-full bg-gradient-to-r from-primary/10 to-secondary/10" />}
                 <Link href={profileUrl}>
                     <Avatar className="h-20 w-20 mx-auto absolute -bottom-10 left-1/2 -translate-x-1/2 border-4 border-background hover:opacity-90">
-                        <AvatarImage src={avatarUrl} alt={displayName} />
+                        <AvatarImage src={avatarUrl} alt={displayName} referrerPolicy="no-referrer" />
                         <AvatarFallback>{displayName?.substring(0, 2)}</AvatarFallback>
                     </Avatar>
                 </Link>
@@ -224,7 +224,7 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
             post.post_type === 'forum' ? 'border-l-4 border-l-blue-500/80 shadow-sm' : ''
         )} onClick={handleCardClick}>
             <CardHeader className="pb-3 flex-row items-center gap-4 space-y-0">
-                <Avatar className="h-10 w-10 border border-muted"><AvatarImage src={post.author_avatar} /><AvatarFallback>{post.author_name?.[0]}</AvatarFallback></Avatar>
+                <Avatar className="h-10 w-10 border border-muted"><AvatarImage src={post.author_avatar} referrerPolicy="no-referrer" /><AvatarFallback>{post.author_name?.[0]}</AvatarFallback></Avatar>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                         <CardTitle className="text-sm font-bold truncate hover:underline">{post.author_name}</CardTitle>
@@ -296,7 +296,7 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
                         <div className="space-y-3 mb-3 max-h-60 overflow-y-auto pr-1">
                             {comments.map((comment: any) => (
                                 <div key={comment.id} className="flex gap-2 text-sm">
-                                    <Avatar className="h-6 w-6"><AvatarImage src={comment.profiles?.avatar_url} /><AvatarFallback>U</AvatarFallback></Avatar>
+                                    <Avatar className="h-6 w-6"><AvatarImage src={comment.profiles?.avatar_url} referrerPolicy="no-referrer" /><AvatarFallback>U</AvatarFallback></Avatar>
                                     <div className="bg-background border rounded-lg p-2 flex-1">
                                         <div className="flex justify-between items-center mb-1">
                                             <span className="font-bold text-xs">{comment.profiles?.full_name}</span>
@@ -398,7 +398,7 @@ export default function FeedUI({ initialPosts, initialUser, initialProfile }: { 
                 <main className="lg:col-span-2 pt-6 space-y-6">
                     <Card className="overflow-hidden">
                         <CardHeader className="flex flex-row items-center gap-4">
-                            <Avatar className="h-12 w-12"><AvatarImage src={avatarUrl} /><AvatarFallback>{displayName?.[0]}</AvatarFallback></Avatar>
+                            <Avatar className="h-12 w-12"><AvatarImage src={avatarUrl} referrerPolicy="no-referrer" /><AvatarFallback>{displayName?.[0]}</AvatarFallback></Avatar>
                             <button onClick={() => { setModalInitialType('social'); setIsPostModalOpen(true); }} className="w-full bg-muted rounded-full px-4 py-3 text-sm text-left text-muted-foreground hover:bg-border transition-colors">Start a post</button>
                         </CardHeader>
                         <CardFooter className="flex justify-around border-t py-2">

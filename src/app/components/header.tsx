@@ -351,9 +351,9 @@ function MobileNav({ user, profile, counts }: { user: SupabaseUser | null, profi
     )
 }
 
-export function Header() {
+export function Header({ initialUser }: { initialUser: SupabaseUser | null }) {
     const isMobile = useIsMobile();
-    const [user, setUser] = useState<SupabaseUser | null>(null);
+    const [user, setUser] = useState<SupabaseUser | null>(initialUser);
     const [profile, setProfile] = useState<any>(null);
     const supabase = createClient();
     const { unreadCount: unreadNotifications } = useNotifications();
@@ -365,12 +365,6 @@ export function Header() {
     };
 
     useEffect(() => {
-        const getInitialSession = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
-        };
-        getInitialSession();
-
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
         });
@@ -382,12 +376,29 @@ export function Header() {
         const getProfile = async () => {
             if (user) {
                 try {
-                    const { data, error } = await supabase
+                    const { data: profileData, error } = await supabase
                         .from('profiles')
                         .select('*')
                         .eq('id', user.id)
                         .single();
-                    if (!error) setProfile(data);
+
+                    if (!error && profileData) {
+                        setProfile(profileData);
+
+                        // AUTO-SYNC GOOGLE AVATAR TO PROFILES TABLE
+                        // If profile has no avatar but metadata has one, update the profile table
+                        const metadataAvatar = user?.user_metadata?.avatar_url;
+                        if (!profileData.avatar_url && metadataAvatar) {
+                            console.log("🔄 Syncing Google avatar to profile table...");
+                            await supabase
+                                .from('profiles')
+                                .update({ avatar_url: metadataAvatar })
+                                .eq('id', user.id);
+
+                            // Update local state as well
+                            setProfile({ ...profileData, avatar_url: metadataAvatar });
+                        }
+                    }
                 } catch (err) {
                     console.error("Header profile fetch error:", err);
                 }

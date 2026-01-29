@@ -16,15 +16,20 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const sourceSans = Source_Sans_3({ subsets: ['latin'], variable: '--font-source-sans' });
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains-mono' });
 
-export default function RootLayout({
+import { createClient } from '@/lib/supabase/server';
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={cn("font-body antialiased", inter.variable, sourceSans.variable, jetbrains.variable)}>
-        <Header />
+        <Header initialUser={user} />
         <main className="min-h-screen">
           {children}
         </main>

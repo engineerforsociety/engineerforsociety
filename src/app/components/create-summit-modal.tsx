@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,6 +64,40 @@ export function CreateSummitModal({ isOpen, onOpenChange, currentUserId, onSucce
         price: '',
         coverImage: ''
     });
+
+
+
+    // Reset form when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setFormData({
+                title: '',
+                brief: '',
+                type: 'online',
+                category: 'conference',
+                isExternal: false,
+                externalOrganizer: '',
+                externalUrl: '',
+                proficiency: 'all',
+                disciplines: [],
+                startDate: undefined,
+                endDate: undefined,
+                startTime: '09:00',
+                endTime: '17:00',
+                venueName: '',
+                venueAddress: '',
+                virtualLink: '',
+                hasCfp: false,
+                cfpDeadline: undefined,
+                cfpLink: '',
+                capacity: '',
+                isPaid: false,
+                price: '',
+                coverImage: ''
+            });
+            setActiveTab('basic');
+        }
+    }, [isOpen]);
 
     const handleDisciplineToggle = (value: string) => {
         setFormData(prev => {
@@ -239,30 +273,42 @@ export function CreateSummitModal({ isOpen, onOpenChange, currentUserId, onSucce
                         <TabsContent value="logistics" className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label>Start Date *</Label>
-                                    <Popover>
+                                    <Label className="font-bold">Start Date *</Label>
+                                    <Popover modal={true}>
                                         <PopoverTrigger asChild>
-                                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.startDate && "text-muted-foreground")}>
+                                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-11 border-slate-200 dark:border-slate-800", !formData.startDate && "text-muted-foreground")}>
                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {formData.startDate ? format(formData.startDate, "PPP") : <span>Pick a date</span>}
+                                                {formData.startDate ? format(formData.startDate, "PPP") : <span>Select Date</span>}
                                             </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar mode="single" selected={formData.startDate} onSelect={d => setFormData({ ...formData, startDate: d })} initialFocus />
+                                        <PopoverContent className="w-auto p-0 z-[9999]" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={formData.startDate}
+                                                onSelect={d => setFormData({ ...formData, startDate: d })}
+                                                initialFocus
+                                                className="rounded-xl border shadow-2xl bg-white dark:bg-[#0F172A] [&_thead]:hidden"
+                                            />
                                         </PopoverContent>
                                     </Popover>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>End Date *</Label>
-                                    <Popover>
+                                    <Label className="font-bold">End Date *</Label>
+                                    <Popover modal={true}>
                                         <PopoverTrigger asChild>
-                                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.endDate && "text-muted-foreground")}>
+                                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-11 border-slate-200 dark:border-slate-800", !formData.endDate && "text-muted-foreground")}>
                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {formData.endDate ? format(formData.endDate, "PPP") : <span>Pick a date</span>}
+                                                {formData.endDate ? format(formData.endDate, "PPP") : <span>Select Date</span>}
                                             </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar mode="single" selected={formData.endDate} onSelect={d => setFormData({ ...formData, endDate: d })} initialFocus />
+                                        <PopoverContent className="w-auto p-0 z-[9999]" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={formData.endDate}
+                                                onSelect={d => setFormData({ ...formData, endDate: d })}
+                                                initialFocus
+                                                className="rounded-xl border shadow-2xl bg-white dark:bg-[#0F172A] [&_thead]:hidden"
+                                            />
                                         </PopoverContent>
                                     </Popover>
                                 </div>
@@ -318,16 +364,22 @@ export function CreateSummitModal({ isOpen, onOpenChange, currentUserId, onSucce
                             {formData.hasCfp && (
                                 <div className="space-y-4 pt-2 animate-in slide-in-from-top-2">
                                     <div className="space-y-2">
-                                        <Label>Submission Deadline</Label>
-                                        <Popover>
+                                        <Label className="font-bold">Submission Deadline</Label>
+                                        <Popover modal={true}>
                                             <PopoverTrigger asChild>
-                                                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.cfpDeadline && "text-muted-foreground")}>
+                                                <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-11 border-slate-200 dark:border-slate-800", !formData.cfpDeadline && "text-muted-foreground")}>
                                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {formData.cfpDeadline ? format(formData.cfpDeadline, "PPP") : <span>Pick a date</span>}
+                                                    {formData.cfpDeadline ? format(formData.cfpDeadline, "PPP") : <span>Select Date</span>}
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
-                                                <Calendar mode="single" selected={formData.cfpDeadline} onSelect={d => setFormData({ ...formData, cfpDeadline: d })} initialFocus />
+                                            <PopoverContent className="w-auto p-0 z-[9999]" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={formData.cfpDeadline}
+                                                    onSelect={d => setFormData({ ...formData, cfpDeadline: d })}
+                                                    initialFocus
+                                                    className="rounded-xl border shadow-2xl bg-white dark:bg-[#0F172A] [&_thead]:hidden"
+                                                />
                                             </PopoverContent>
                                         </Popover>
                                     </div>

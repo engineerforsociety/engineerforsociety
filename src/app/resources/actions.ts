@@ -114,25 +114,66 @@ export const getCachedAllResources = unstable_cache(
   }
 );
 
-/**
- * Optimized fetchResources that leverages a single master cache.
- * Even with filters, it will hit the master cache and filter in memory,
- * which is orders of magnitude faster than a DB query + cache miss.
- */
-export async function fetchResources(filters?: { category?: string; discipline?: string; query?: string }) {
-  const allResources = await getCachedAllResources();
+// Optimized fetch function with pagination
+export async function fetchResources(filters?: {
+  category?: string;
+  discipline?: string;
+  query?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const { category, discipline, query, page = 0, limit = 12 } = filters || {};
+  const offset = page * limit;
 
-  if (!filters) return allResources;
+  console.time('fetch-resources-db');
+  let supabaseQuery = supabaseAdmin
+    .from('resources')
+    .select(`
+      id,
+      title,
+      description,
+      resource_type,
+      category,
+      discipline,
+      author_id,
+      author_org,
+      external_url,
+      embed_url,
+      upvote_count,
+      bookmark_count,
+      view_count,
+      created_at,
+      year,
+      license,
+      skill_level,
+      is_premium,
+      tags,
+      slug,
+      profiles:author_id (full_name, avatar_url)
+    `)
+    .eq('status', 'approved')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
 
-  const { category, discipline, query } = filters;
+  if (category && category !== 'All') {
+    supabaseQuery = supabaseQuery.eq('category', category);
+  }
+  if (discipline && discipline !== 'All') {
+    supabaseQuery = supabaseQuery.eq('discipline', discipline);
+  }
+  if (query) {
+    supabaseQuery = supabaseQuery.ilike('title', `%${query}%`);
+  }
 
-  // High-speed in-memory filtering
-  return allResources.filter((r: any) => {
-    const matchesCategory = !category || category === 'All' || r.category === category;
-    const matchesDiscipline = !discipline || discipline === 'All' || r.discipline === discipline;
-    const matchesQuery = !query || r.title.toLowerCase().includes(query.toLowerCase());
-    return matchesCategory && matchesDiscipline && matchesQuery;
-  });
+  const { data, error } = await supabaseQuery;
+  console.timeEnd('fetch-resources-db');
+
+  if (error) {
+    console.error('Supabase error fetching resources:', error);
+    return [];
+  }
+
+  return data || [];
 }
 
 

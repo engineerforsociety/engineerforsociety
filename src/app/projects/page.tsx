@@ -1,119 +1,122 @@
-import Image from 'next/image';
+
+import { Suspense } from 'react';
+import { getProjects } from '@/lib/project-service';
+import { ProjectsClient } from './projects-client';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+  Zap, Speaker, Wifi, Settings, Home as HomeIcon, Plane,
+  FlaskConical, Leaf, Bot, Gamepad2, Lightbulb, Monitor, Watch,
+  Plus, Filter, Search
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Eye, GitBranch, Github, Users, Star } from 'lucide-react';
-import { sampleProjects } from '@/lib/data';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ProjectForm } from '@/components/projects/project-form';
 
-export default function ProjectsPage() {
+// ISR Configuration
+export const revalidate = 60; // Refresh every 60 seconds
+
+const categories = [
+  { name: 'All', icon: Zap },
+  { name: 'Audio & Sound', icon: Speaker },
+  { name: 'IoT', icon: Wifi },
+  { name: 'Installations', icon: Settings },
+  { name: 'Home Automation', icon: HomeIcon },
+  { name: 'Flying Things', icon: Plane },
+  { name: 'Lab Tools', icon: FlaskConical },
+  { name: 'Environment', icon: Leaf },
+  { name: 'Robotics', icon: Bot },
+  { name: 'Games', icon: Gamepad2 },
+  { name: 'Smart Lighting', icon: Lightbulb },
+  { name: 'Displays', icon: Monitor },
+  { name: 'Wearables', icon: Watch },
+];
+
+const allTags = [
+  'Animals', 'Arduino User Group', 'Audio', 'Cars', 'Clocks', 'Communication',
+  'Data Collection', 'Debugging Tools', 'Disability Reduction', 'Drones',
+  'Embedded', 'Energy Efficiency', 'Entertainment System', 'Environmental Sensing',
+  'Food And Drinks', 'Games', 'Garden', 'Greener Planet', 'Health',
+  'Helicopters', 'Home Automation', 'Human Welfare', 'Internet Of Things',
+  'Kids', 'Lights', 'Monitoring', 'Music', 'Passenger Vehicles', 'Pets',
+  'Planes', 'Remote Control', 'Robots', 'Security', 'Smart appliances',
+  'Smartwatches', 'Tools', 'Toys', 'Tracking', 'Transportation',
+  'Wardriving', 'Wearables', 'Weather'
+];
+
+export default async function ProjectsPage() {
+  const projects = await getProjects();
+
   return (
-    <div className="space-y-8">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-          Project Showcase
-        </h1>
-        <p className="mt-2 text-lg text-muted-foreground">
-          Explore innovative projects from our community members.
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-accent/5 pb-16 pt-24 md:pt-32">
+        <div className="container mx-auto max-w-7xl px-4 md:px-6">
+          <div className="flex flex-col items-center text-center space-y-8">
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+              Build. Share. Innovate.
+            </h1>
+            <p className="max-w-[700px] text-lg text-muted-foreground md:text-xl">
+              The premium hub for engineers to showcase their inventions, layouts, and code.
+              Join the community of creators.
+            </p>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {sampleProjects.map((project) => {
-          const projectImage = PlaceHolderImages.find(
-            (p) => p.id === project.imageId
-          );
-          const ownerImage = PlaceHolderImages.find(
-            (p) => p.id === project.owner.avatarId
-          );
-          return (
-            <Card
-              key={project.id}
-              className="flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-300"
-            >
-              {projectImage && (
-                <div className="relative h-48 w-full">
-                  <Image
-                    src={projectImage.imageUrl}
-                    alt={project.title}
-                    fill
-                    className="object-cover"
-                    data-ai-hint={projectImage.imageHint}
-                  />
-                  {project.isSeekingCollaborators && (
-                     <Badge className="absolute top-2 right-2" variant="secondary">
-                        <Users className="mr-1 h-3 w-3" /> Seeking Collaborators
-                    </Badge>
-                  )}
-                </div>
-              )}
-              <CardHeader>
-                <CardTitle className="text-xl">{project.title}</CardTitle>
-                <CardDescription>{project.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 space-y-4">
-                 <div className="flex flex-wrap gap-2">
-                    {project.technologies.map(tech => (
-                        <Badge key={tech} variant="outline">{tech}</Badge>
-                    ))}
-                 </div>
-                 <div className="flex items-center text-sm text-muted-foreground pt-2 border-t">
-                    <div className="flex items-center gap-2">
-                         <Avatar className="h-6 w-6">
-                            {ownerImage && <AvatarImage src={ownerImage.imageUrl} alt={project.owner.name} />}
-                            <AvatarFallback>{project.owner.name.substring(0,2)}</AvatarFallback>
-                        </Avatar>
-                        <span>{project.owner.name}</span>
-                    </div>
-                    <div className="ml-auto flex items-center gap-4">
-                         <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger className='flex items-center gap-1'>
-                                    <Star className="h-4 w-4" /> {project.likeCount}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Likes</p>
-                                </TooltipContent>
-                            </Tooltip>
-                         </TooltipProvider>
-                          <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger className='flex items-center gap-1'>
-                                    <Eye className="h-4 w-4" /> {project.viewCount}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Views</p>
-                                </TooltipContent>
-                            </Tooltip>
-                         </TooltipProvider>
-                    </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end gap-2">
-                <Button variant="outline">
-                    <Github className="mr-2 h-4 w-4"/>
-                    Source
-                </Button>
-                <Button>View Project</Button>
-              </CardFooter>
-            </Card>
-          );
-        })}
-      </div>
+            <div className="w-full max-w-2xl flex items-center gap-2 relative">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  placeholder="What do you want to build today?"
+                  className="pl-10 h-12 text-lg shadow-sm border-muted-foreground/20 focus-visible:ring-primary/20"
+                />
+              </div>
+              <Button size="lg" className="h-12 px-8 shadow-md">Search</Button>
+            </div>
+
+            <div className="flex gap-4">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="lg" className="gap-2 shadow-lg">
+                    <Plus className="h-5 w-5" /> Add Project
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-5xl h-[90vh] p-0 flex flex-col gap-0 overflow-hidden">
+                  <div className="p-6 pb-2 shrink-0">
+                    <DialogHeader>
+                      <DialogTitle>Create New Project</DialogTitle>
+                      <DialogDescription>
+                        Share your engineering journey with the world.
+                      </DialogDescription>
+                    </DialogHeader>
+                  </div>
+                  <ScrollArea className="flex-1 p-6 pt-2">
+                    <ProjectForm />
+                  </ScrollArea>
+                  <DialogFooter className="p-6 pt-2 shrink-0 border-t bg-background z-10">
+                    <Button variant="outline">Save as Draft</Button>
+                    <Button type="submit">Publish Project</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Button variant="outline" size="lg" className="gap-2">
+                <Filter className="h-5 w-5" /> Filters
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <Suspense fallback={<div className="container py-20 text-center text-muted-foreground animate-pulse">Loading Projects...</div>}>
+        <ProjectsClient initialProjects={projects} allTags={allTags} />
+      </Suspense>
     </div>
   );
 }

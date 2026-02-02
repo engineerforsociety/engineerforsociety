@@ -6,13 +6,14 @@ import {
     Code, X, UserMinus, Podcast, BookOpen, FilePen, Edit, Trash2,
     Loader2, Repeat2, Home as HomeIcon, TrendingUp, Compass,
     Activity, ChevronDown, Star, Gamepad2, Trophy, Zap, Globe,
-    Settings2, Hash
+    Settings2, Hash, Eye
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { EditPostModal } from '@/app/components/edit-post-modal';
 import { PostDetailModal } from '@/app/components/post-detail-modal';
 import { Badge } from '@/components/ui/badge';
+import { markPostAsSeenAction } from '@/app/actions/smart-feed-actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -23,7 +24,7 @@ import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import { CreatePostModal } from '@/app/components/create-post-modal';
 import { PostJobModal } from '@/app/components/post-job-modal';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -68,8 +69,29 @@ function ProfileCard({ user, profile }: { user: User | null, profile: any }) {
 
 function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { post: FeedPost; currentUserId?: string; onRefresh?: () => void; onEdit?: (post: FeedPost) => void; onPostClick?: (post: FeedPost) => void }) {
     const router = useRouter();
+    const [isSeen, setIsSeen] = useState(post.is_seen || false);
+    const observerRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
     const supabase = createClient();
+
+    // Mark as Seen Logic
+    useEffect(() => {
+        if (isSeen || !currentUserId) return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+                    setIsSeen(true);
+                    markPostAsSeenAction(post.id, post.post_type);
+                    observer.disconnect();
+                }
+            },
+            { threshold: 0.6 }
+        );
+
+        if (observerRef.current) observer.observe(observerRef.current);
+        return () => observer.disconnect();
+    }, [isSeen, currentUserId, post.id, post.post_type]);
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [likeCount, setLikeCount] = useState(post.like_count || 0);
@@ -94,15 +116,20 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
         try {
             let error;
             if (post.post_type === 'resource') {
-                const { error: reqError } = newIsLiked
-                    ? await supabase.from('resource_interactions').insert({ resource_id: post.id, user_id: currentUserId, interaction_type: 'upvote' })
-                    : await supabase.from('resource_interactions').delete().eq('resource_id', post.id).eq('user_id', currentUserId).eq('interaction_type', 'upvote');
-                error = reqError;
+                if (newIsLiked) {
+                    // Try to insert, if fails because it exists, that's fine (sync issue)
+                    const { error: insError } = await supabase.from('resource_interactions').insert({ resource_id: post.id, user_id: currentUserId, interaction_type: 'upvote' });
+                    // Ignore 23505 (unique_violation)
+                    if (insError && insError.code !== '23505') error = insError;
+                } else {
+                    const { error: delError } = await supabase.from('resource_interactions').delete().eq('resource_id', post.id).eq('user_id', currentUserId).eq('interaction_type', 'upvote');
+                    error = delError;
+                }
             } else {
                 const table = post.post_type === 'forum' ? 'forum_post_reactions' : 'social_post_reactions';
                 if (newIsLiked) {
                     const { error: insError } = await supabase.from(table).insert({ post_id: post.id, user_id: currentUserId, reaction_type: 'like' });
-                    error = insError;
+                    if (insError && insError.code !== '23505') error = insError;
                 } else {
                     const { error: delError } = await supabase.from(table).delete().eq('post_id', post.id).eq('user_id', currentUserId);
                     error = delError;
@@ -219,10 +246,15 @@ function PostCard({ post, currentUserId, onRefresh, onEdit, onPostClick }: { pos
     }
 
     return (
-        <Card className={cn(
-            "hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden",
+        <Card ref={observerRef} className={cn(
+            "hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden relative",
             post.post_type === 'forum' ? 'border-l-4 border-l-blue-500/80 shadow-sm' : ''
         )} onClick={handleCardClick}>
+            {isSeen && (
+                <div className="bg-muted/50 text-muted-foreground text-[10px] uppercase font-bold tracking-widest px-4 py-1 flex items-center gap-2 border-b">
+                    <Eye className="h-3 w-3" /> You&apos;ve seen this earlier
+                </div>
+            )}
             <CardHeader className="pb-3 flex-row items-center gap-4 space-y-0">
                 <Avatar className="h-10 w-10 border border-muted"><AvatarImage src={post.author_avatar} referrerPolicy="no-referrer" /><AvatarFallback>{post.author_name?.[0]}</AvatarFallback></Avatar>
                 <div className="flex-1 min-w-0">
@@ -350,10 +382,11 @@ function SideNavigation() {
     );
 }
 
+import { InfiniteFeed } from '@/app/components/InfiniteFeed';
+
 export default function FeedUI({ initialPosts, initialUser, initialProfile }: { initialPosts: any[], initialUser: User | null, initialProfile: any }) {
     const [user] = useState<User | null>(initialUser);
     const [profile] = useState<any>(initialProfile);
-    const [posts, setPosts] = useState<any[]>(initialPosts);
 
     const [isPostModalOpen, setIsPostModalOpen] = useState(false);
     const [modalInitialType, setModalInitialType] = useState<'social' | 'forum'>('social');
@@ -407,17 +440,14 @@ export default function FeedUI({ initialPosts, initialUser, initialProfile }: { 
                         </CardFooter>
                     </Card>
 
-                    <div className="space-y-4">
-                        {posts.map((post) => (
-                            <PostCard
-                                key={post.feed_item_id || post.id}
-                                post={post}
-                                currentUserId={user?.id}
-                                onPostClick={handlePostClick}
-                                onEdit={(p) => { setEditingPost(p); setIsEditModalOpen(true); }}
-                            />
-                        ))}
-                    </div>
+                    <InfiniteFeed
+                        initialPosts={initialPosts}
+                        currentUser={user}
+                        profile={profile}
+                        PostCardComponent={PostCard}
+                        onPostClick={handlePostClick}
+                        onEdit={(p) => { setEditingPost(p); setIsEditModalOpen(true); }}
+                    />
                 </main>
 
                 {/* Right Sidebar */}

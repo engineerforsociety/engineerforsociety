@@ -16,10 +16,10 @@ export type Notification = {
     created_at: string;
 };
 
-export function useNotifications() {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [unreadCount, setUnreadCount] = useState(0);
-    const [loading, setLoading] = useState(true);
+export function useNotifications(initialData: Notification[] = []) {
+    const [notifications, setNotifications] = useState<Notification[]>(initialData);
+    const [unreadCount, setUnreadCount] = useState(initialData.filter(n => !n.is_read).length);
+    const [loading, setLoading] = useState(initialData.length === 0);
     const supabase = createClient();
     const { toast } = useToast();
 
@@ -28,7 +28,8 @@ export function useNotifications() {
         audio.play().catch(err => console.error('Error playing sound:', err));
     }, []);
 
-    const fetchNotifications = useCallback(async () => {
+    const fetchNotifications = useCallback(async (quiet = false) => {
+        if (!quiet) setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             setLoading(false);
@@ -39,7 +40,7 @@ export function useNotifications() {
             .from('notifications')
             .select('*')
             .eq('user_id', user.id)
-            .not('type', 'eq', 'new_message') // Filter out message notifications
+            .not('type', 'eq', 'new_message')
             .order('created_at', { ascending: false })
             .limit(50);
 
@@ -55,7 +56,10 @@ export function useNotifications() {
     }, [supabase]);
 
     useEffect(() => {
-        fetchNotifications();
+        // If we have initial data, don't fetch on mount but still setup subscription
+        if (initialData.length === 0) {
+            fetchNotifications();
+        }
 
         let channel: any;
 
@@ -75,23 +79,12 @@ export function useNotifications() {
                     },
                     (payload) => {
                         const newNotification = payload.new as Notification;
-                        
-                        // Ignore 'new_message' notifications
-                        if (newNotification.type === 'new_message') {
-                            return;
-                        }
+                        if (newNotification.type === 'new_message') return;
 
                         setNotifications(prev => [newNotification, ...prev]);
                         setUnreadCount(prev => prev + 1);
-
-                        // Play sound
                         playNotificationSound();
-
-                        // Show toast
-                        toast({
-                            title: newNotification.title,
-                            description: newNotification.content,
-                        });
+                        toast({ title: newNotification.title, description: newNotification.content });
                     }
                 )
                 .subscribe();
@@ -102,7 +95,7 @@ export function useNotifications() {
         return () => {
             if (channel) supabase.removeChannel(channel);
         };
-    }, [supabase, fetchNotifications, playNotificationSound, toast]);
+    }, [supabase, initialData.length, playNotificationSound, toast, fetchNotifications]);
 
     const markAsRead = async (id: string) => {
         const { error } = await supabase
@@ -110,10 +103,7 @@ export function useNotifications() {
             .update({ is_read: true, read_at: new Date().toISOString() })
             .eq('id', id);
 
-        if (error) {
-            console.error('Error marking as read:', error);
-            return;
-        }
+        if (error) return;
 
         setNotifications(prev =>
             prev.map(n => (n.id === id ? { ...n, is_read: true } : n))
@@ -132,10 +122,7 @@ export function useNotifications() {
             .eq('is_read', false)
             .not('type', 'eq', 'new_message');
 
-        if (error) {
-            console.error('Error marking all as read:', error);
-            return;
-        }
+        if (error) return;
 
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
@@ -147,6 +134,6 @@ export function useNotifications() {
         loading,
         markAsRead,
         markAllAsRead,
-        refresh: fetchNotifications,
+        refresh: () => fetchNotifications(false),
     };
 }

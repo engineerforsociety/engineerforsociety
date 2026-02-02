@@ -1,12 +1,12 @@
 
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { getCachedFeed } from '@/lib/feed-service';
+import { getSmartFeedAction } from './actions/smart-feed-actions';
 import FeedUI from './components/FeedUI';
 import { LandingHero } from '@/app/components/landing-hero';
 
-// ISR Configuration
-export const revalidate = 60; // 60 seconds cache
+// Disable static ISR and use dynamic rendering for personalized feed
+export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   const supabase = await createClient();
@@ -17,7 +17,7 @@ export default async function Home() {
     return <LandingHero />;
   }
 
-  // Fetch user profile (can be cached per user session if needed, but fast enough)
+  // Fetch user profile
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
@@ -35,8 +35,9 @@ export default async function Home() {
 
 // Separate component for streaming content
 async function FeedContentWrapper({ user, profile }: { user: any, profile: any }) {
-  // fetching cached feed
-  const initialPosts = await getCachedFeed();
+  // fetching smart feed (RSC call to server action logic)
+  const result = await getSmartFeedAction(0, 10);
+  const initialPosts = result.posts;
 
   return (
     <FeedUI

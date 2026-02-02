@@ -1,17 +1,13 @@
-import { createClient } from '@supabase/supabase-js';
-import { unstable_cache } from 'next/cache';
+'use server';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const staticSupabase = createClient(supabaseUrl, supabaseKey);
+import { createClient } from '@/lib/supabase/server';
 
-// Smart Feed Algorithm with User Preferences
+// Smart Feed Algorithm
 const calculateEngagementScore = (
     likeCount: number,
     commentCount: number,
     viewCount: number,
-    createdAt: string,
-    userInterests?: string[]
+    createdAt: string
 ): number => {
     const ageInHours = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60);
     const timeDecay = Math.max(0.1, 1 - (ageInHours / 168));
@@ -23,46 +19,45 @@ const calculateEngagementScore = (
     return (rawScore * timeDecay) + recencyBonus;
 };
 
-// PAGINATED FEED FETCHER (New approach for infinite scroll)
-// PAGINATED FEED FETCHER (New approach for infinite scroll)
-export async function getPaginatedFeed(
+// SERVER ACTION for Paginated Feed
+export async function getPaginatedFeedAction(
     page: number = 0,
     limit: number = 10,
-    userId?: string,
     seenPostIds: string[] = []
 ) {
-    console.log(`📄 Fetching Feed Page ${page + 1} (Limit: ${limit})`);
+    console.log(`📄 Fetching Feed Page ${page + 1} (Limit: ${limit}, Seen: ${seenPostIds.length})`);
 
     try {
+        const supabase = await createClient();
         const offset = page * limit;
 
-        // Use offset-based strategy instead of NOT IN to avoid potential empty list SQL errors
-        const forumLimit = 6;
-        const socialLimit = 6;
-        const resourceLimit = 3;
+        // Fetch MORE posts and FEWER resources for better balance
+        // Fetch extra to ensure we have enough after mixing
+        const forumLimit = 6;  // Get 6 forum posts
+        const socialLimit = 6; // Get 6 social posts
+        const resourceLimit = 3; // Get 3 resources
 
-        // Fetch content types in parallel
         const [
             { data: forumData },
             { data: socialData },
             { data: resourceData }
         ] = await Promise.all([
-            staticSupabase
+            supabase
                 .from('forum_posts')
                 .select('*, forum_post_reactions(count), forum_comments(count)')
                 .order('created_at', { ascending: false })
-                .range(offset * 0.6, (offset * 0.6) + forumLimit - 1), // Approximate offset for mixed components
-            staticSupabase
+                .range(page * forumLimit, (page + 1) * forumLimit - 1),
+            supabase
                 .from('social_posts')
                 .select('*, social_post_reactions(count), social_comments(count)')
                 .order('created_at', { ascending: false })
-                .range(offset * 0.6, (offset * 0.6) + socialLimit - 1),
-            staticSupabase
+                .range(page * socialLimit, (page + 1) * socialLimit - 1),
+            supabase
                 .from('resources')
                 .select('*')
                 .eq('status', 'approved')
                 .order('created_at', { ascending: false })
-                .range(offset * 0.3, (offset * 0.3) + resourceLimit - 1)
+                .range(page * resourceLimit, (page + 1) * resourceLimit - 1)
         ]);
 
         // Collect profile IDs
@@ -71,7 +66,7 @@ export async function getPaginatedFeed(
         socialData?.forEach(p => profileIds.add(p.author_id));
         resourceData?.forEach(r => { if (r.author_id) profileIds.add(r.author_id); });
 
-        const { data: profiles } = await staticSupabase
+        const { data: profiles } = await supabase
             .from('profiles')
             .select('id, full_name, avatar_url, job_title')
             .in('id', Array.from(profileIds));
@@ -152,21 +147,23 @@ export async function getPaginatedFeed(
                 item_type: 'post',
                 like_count: resource.upvote_count || 0,
                 comment_count: 0,
-                engagement_score: calculateEngagementScore(resource.upvote_count || 0, 0, resource.view_count || 0, resource.created_at) + 10,
+                engagement_score: calculateEngagementScore(resource.upvote_count || 0, 0, resource.view_count || 0, resource.created_at) + 10, // Reduced bonus
                 resource_category: resource.category,
                 resource_type_label: resource.resource_type,
             };
         });
 
-        // Combine and mix
+        // Intelligent mixing: Interleave posts and resources
         const allPosts = [...formattedForumPosts, ...formattedSocialPosts];
+        const mixedFeed: any[] = [];
+
+        // Sort posts by engagement
         allPosts.sort((a, b) => b.engagement_score - a.engagement_score);
 
-        const mixedFeed: any[] = [];
+        // Mix: Every 3-4 posts, insert 1 resource
         let postIndex = 0;
         let resourceIndex = 0;
 
-        // Intelligent mixing: Mostly posts, peppered with resources
         while (mixedFeed.length < limit && (postIndex < allPosts.length || resourceIndex < formattedResources.length)) {
             // Add 3-4 posts
             for (let i = 0; i < 3 && postIndex < allPosts.length && mixedFeed.length < limit; i++) {
@@ -179,15 +176,7 @@ export async function getPaginatedFeed(
             }
         }
 
-        // Fill remaining if needed
-        while (mixedFeed.length < limit && postIndex < allPosts.length) {
-            mixedFeed.push(allPosts[postIndex++]);
-        }
-        while (mixedFeed.length < limit && resourceIndex < formattedResources.length) {
-            mixedFeed.push(formattedResources[resourceIndex++]);
-        }
-
-        console.log(`✅ Page ${page + 1}: ${mixedFeed.length} posts loaded`);
+        console.log(`✅ Page ${page + 1}: ${mixedFeed.length} items (${formattedForumPosts.length} forum, ${formattedSocialPosts.length} social, ${formattedResources.length} resources)`);
 
         return {
             posts: mixedFeed,
@@ -199,13 +188,3 @@ export async function getPaginatedFeed(
         return { posts: [], hasMore: false, nextPage: page };
     }
 }
-// INITIAL CACHED FEED (First 10 posts only)
-export const getCachedFeed = unstable_cache(
-    async () => {
-        console.log("⚡ FETCHING INITIAL FEED (ISR - First 10 Posts) ⚡");
-        const result = await getPaginatedFeed(0, 10);
-        return result.posts;
-    },
-    ['initial-feed-v3'],
-    { revalidate: 60, tags: ['feed'] }
-);
